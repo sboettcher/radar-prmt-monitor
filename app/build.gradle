@@ -1,0 +1,61 @@
+apply plugin: 'com.android.application'
+apply plugin: 'io.fabric'
+
+android {
+    compileSdkVersion 27
+    buildToolsVersion '27.0.2'
+    defaultConfig {
+        applicationId 'org.radarcns.prmtmonitor'
+        minSdkVersion 21
+        targetSdkVersion 27
+        versionCode 1
+        versionName "0.0.1"
+        manifestPlaceholders = ['appAuthRedirectScheme': 'org.radarcns.prmtmonitor']
+        multiDexEnabled true
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    lintOptions {
+        abortOnError false
+    }
+    packagingOptions {
+        exclude 'META-INF/ASL2.0'
+        exclude 'META-INF/LICENSE'
+    }
+}
+
+repositories {
+    flatDir { dirs 'libs' }
+    jcenter()
+    google()
+    maven { url 'http://dl.bintray.com/radar-cns/org.radarcns' }
+    maven { url 'https://oss.jfrog.org/artifactory/oss-snapshot-local' }
+}
+
+dependencies {
+    api 'org.radarcns:radar-commons-android:0.6.1'
+
+    //implementation 'org.radarcns:radar-android-login-qr:0.6'
+    implementation 'com.google.firebase:firebase-config:11.6.2'
+    implementation 'org.slf4j:slf4j-api:1.7.25'
+    implementation 'sk.baka.slf4j:slf4j-handroid:1.7.26'
+    implementation('com.crashlytics.sdk.android:crashlytics:2.7.1@aar') {
+        transitive = true
+    }
+
+    api 'com.android.support:support-v4:27.1.1'
+    implementation 'com.android.support:appcompat-v7:27.1.1'
+
+    //api project(':commons-android')
+
+    testApi 'junit:junit:4.12'
+    testRuntimeOnly 'org.slf4j:slf4j-simple:1.7.25'
+}
+
+// Needed for Firebase. Put at the bottom so it can detect the Firebase version.
+apply plugin: 'com.google.gms.google-services'
+
