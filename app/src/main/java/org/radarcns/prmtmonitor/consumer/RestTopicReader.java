@@ -62,6 +62,29 @@ class RestTopicReader implements KafkaTopicReader {
         this.has_consumer = false;
     }
 
+
+    @Override
+    public JSONArray topics() throws IOException, JSONException {
+        logger.info("Getting list of topics");
+
+        RestClient restClient;
+        RestReader.RequestProperties requestProperties;
+        synchronized (reader) {
+            restClient = reader.getRestClient();
+            requestProperties = reader.getRequestProperties();
+        }
+
+        Request request = buildRequest( "GET", restClient.getRelativeUrl("topics"), requestProperties, null);
+        String response = handleRequest(restClient, request);
+
+        if (state.getState() == ConnectionState.State.UNAUTHORIZED) {
+            throw new AuthenticationException("Request unauthorized");
+        }
+
+        return new JSONArray(response);
+    }
+
+
     @Override
     public void consumer(String group, String instance) throws IOException {
         this.consumer_group = group;
@@ -98,6 +121,7 @@ class RestTopicReader implements KafkaTopicReader {
 
         this.has_consumer = true;
     }
+
 
     @Override
     public void subscribe(Set<AvroTopic> topics) throws IOException {
@@ -147,6 +171,7 @@ class RestTopicReader implements KafkaTopicReader {
         }
     }
 
+
     @Override
     public JSONArray read() throws IOException, JSONException {
         logger.info("Reading");
@@ -173,6 +198,7 @@ class RestTopicReader implements KafkaTopicReader {
 
         return new JSONArray(response);
     }
+
 
     @Override
     public void close(String group, String instance) throws IOException {
@@ -290,5 +316,10 @@ class RestTopicReader implements KafkaTopicReader {
 
     public boolean hasConsumer() {
         return has_consumer;
+    }
+
+    public void setGroupAndInstance(String group, String instance) {
+        this.consumer_group = group;
+        this.consumer_instance = instance;
     }
 }

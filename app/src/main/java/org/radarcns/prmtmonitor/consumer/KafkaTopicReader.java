@@ -13,6 +13,17 @@ import java.util.Set;
 
 public interface KafkaTopicReader extends Closeable {
     /**
+     * Get a full list of available Kafka topics.
+     *
+     * @return JSONArray of topics available on the Kafka server
+     * @throws AuthenticationException if the client failed to authenticate itself
+     * @throws IOException if the client could not send a message
+     * @throws JSONException if the read response could not be decoded to a JSONArray
+     */
+    JSONArray topics() throws IOException, JSONException;
+
+
+    /**
      * Create a consumer in given group with given instance id.
      *
      * @param group consumer group id
@@ -21,6 +32,7 @@ public interface KafkaTopicReader extends Closeable {
      * @throws IOException if the client could not send a message
      */
     void consumer(String group, String instance) throws IOException;
+
 
     /**
      * Subscribe the consumer to a Kafka topic.
@@ -31,20 +43,32 @@ public interface KafkaTopicReader extends Closeable {
      */
     void subscribe(Set<AvroTopic> topics) throws IOException;
 
+
     /**
-     * Read messages from subscribed Kafka topic.
+     * Consume messages from the subscribed Kafka topics.
      *
+     * @return A JSONArray of the samples consumed
      * @throws AuthenticationException if the client failed to authenticate itself
      * @throws IOException if the client could not send a message
+     * @throws JSONException if the read response could not be decoded to a JSONArray
      */
     JSONArray read() throws IOException, JSONException;
 
+
     /**
-     * Closes the consumer.
+     * Closes the current consumer.
      *
      * @throws AuthenticationException if the client failed to authenticate itself
      * @throws IOException if the client could not send a message
      */
     void close() throws IOException;
+    /**
+     * Closes a specific consumer.
+     *
+     * @param group consumer group id
+     * @param instance consumer instance id
+     * @throws AuthenticationException if the client failed to authenticate itself
+     * @throws IOException if the client could not send a message
+     */
     void close(String group, String instance) throws IOException;
 }

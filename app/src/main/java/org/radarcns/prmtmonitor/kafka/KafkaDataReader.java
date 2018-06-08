@@ -30,7 +30,6 @@ import org.radarcns.prmtmonitor.consumer.KafkaReader;
 import org.radarcns.prmtmonitor.consumer.KafkaTopicReader;
 import org.radarcns.producer.AuthenticationException;
 import org.radarcns.topic.AvroTopic;
-import org.radarcns.util.ListPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,9 +39,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -61,7 +60,8 @@ public class KafkaDataReader<V> implements Closeable {
     private final ServerStatusListener listener;
     private final KafkaReader reader;
     private KafkaTopicReader topicReader;
-    private HashSet<AvroTopic> topics;
+    private HashSet<AvroTopic> subscribedTopics;
+    private ArrayList<String> availableTopics;
     private final KafkaConnectionChecker connection;
     private final AtomicInteger getLimit;
     private final HandlerThread mHandlerThread;
@@ -73,16 +73,25 @@ public class KafkaDataReader<V> implements Closeable {
     private Runnable subscribeFuture;
     /** Upload rate in milliseconds. */
     private long downloadRate;
-    private String userId;
+
+    private String consumerGroup;
+    private String consumerInstance;
+
+    public static final String CONFIG_CONSUMER_GROUP = "consumer_group";
+    public static final String CONFIG_CONSUMER_INSTANCE = "consumer_instance";
+    public static final String CONFIG_CONSUMER_RATE = "consumer_download_rate";
 
     public KafkaDataReader(@NonNull ServerStatusListener listener, @NonNull
-            KafkaReader reader, int getLimit, long downloadRate, String userId) {
+            KafkaReader reader, int getLimit, long downloadRate, String consumerGroup, String consumerInstance) {
         this.listener = listener;
         this.reader = reader;
-        this.userId = userId;
-        topicReader = null;
-        topics = new HashSet<>();
+        this.topicReader = null;
+        this.subscribedTopics = new HashSet<>();
+        this.availableTopics = new ArrayList<>();
         this.getLimit = new AtomicInteger(getLimit);
+
+        this.consumerGroup = consumerGroup;
+        this.consumerInstance = consumerInstance;
 
         mHandlerThread = new HandlerThread("data-reader", THREAD_PRIORITY_BACKGROUND);
         mHandlerThread.start();
@@ -132,7 +141,7 @@ public class KafkaDataReader<V> implements Closeable {
         downloadFuture = new Runnable() {
             @Override
             public void run() {
-                if (connection.isConnected() && !topics.isEmpty()) {
+                if (connection.isConnected() && !subscribedTopics.isEmpty()) {
                     read();
                 }
                 mHandler.postDelayed(this, downloadRate);
@@ -173,13 +182,13 @@ public class KafkaDataReader<V> implements Closeable {
                     logger.warn("failed to close reader", e);
                 }
 
-                topics.clear();
+                subscribedTopics.clear();
             }
         });
         mHandlerThread.quitSafely();
     }
 
-    public void addTopics(final Set<AvroTopic> new_topics) throws IOException {
+    public void addTopics(final Set<AvroTopic> newTopics) throws IOException {
         if (subscribeFuture != null) {
             mHandler.removeCallbacks(subscribeFuture);
         }
@@ -190,13 +199,21 @@ public class KafkaDataReader<V> implements Closeable {
                     try {
                         if (topicReader == null) {
                             topicReader = reader.reader();
-                            topicReader.close("test_group", "test_instance");
-                            topicReader.consumer("test_group", "test_instance");
+                            topicReader.close(consumerGroup, consumerInstance);
+                            topicReader.consumer(consumerGroup, consumerInstance);
+
+                            if (availableTopics.isEmpty())
+                                availableTopics = filterTopics(topicReader.topics());
+                            logger.info("{} topics available on server", availableTopics.size());
                         }
-                        topicReader.subscribe(new_topics);
-                        topics.addAll(new_topics);
+                        if (checkAvailableTopics(newTopics)) {
+                            topicReader.subscribe(newTopics);
+                            subscribedTopics.addAll(newTopics);
+                        }
                     } catch (IOException ex) {
                         logger.error("Error trying ot subscribe to topics: ", ex);
+                    } catch (JSONException ex) {
+                        logger.error("Failed to convert a response to JSON!", ex);
                     }
                 } else {
                     mHandler.postDelayed(this, downloadRate);
@@ -238,7 +255,7 @@ public class KafkaDataReader<V> implements Closeable {
         } catch (IOException ex) {
             logger.error("Failed to read!", ex);
         } catch (JSONException ex) {
-            logger.error("Failed to convert read response to JSON!", ex);
+            logger.error("Failed to convert a response to JSON!", ex);
         }
     }
 
@@ -337,10 +354,6 @@ public class KafkaDataReader<V> implements Closeable {
         }
     }
 
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
     public <V extends SpecificRecord> AvroTopic<ObservationKey, V> createTopic(String name, Class<V> valueClass) {
         try {
             Method method = valueClass.getMethod("getClassSchema");
@@ -351,5 +364,39 @@ public class KafkaDataReader<V> implements Closeable {
             logger.error("Error creating topic " + name, e);
             throw new RuntimeException(e);
         }
+    }
+
+
+    /**
+     * Topic Helpers
+     */
+
+    private ArrayList<String> filterTopics(JSONArray topics) throws JSONException {
+        ArrayList<String> filteredTopics = new ArrayList<>();
+        for (int i = 0; i < topics.length(); i++) {
+            filteredTopics.add(topics.getString(i));
+        }
+        for (Iterator<String> iterator = filteredTopics.iterator(); iterator.hasNext(); ) {
+            String topic = iterator.next();
+            if (topic.contains("_1") || topic.contains("org.radarcns.stream") || topic.equals("_schemas"))
+                iterator.remove();
+        }
+        return filteredTopics;
+    }
+
+    public ArrayList<String> getAvailableTopics() {
+        return availableTopics;
+    }
+
+    public boolean checkAvailableTopics(String topic) {
+        return availableTopics.contains(topic);
+    }
+    public boolean checkAvailableTopics(Set<AvroTopic> topics) {
+        boolean isAvailable = true;
+        for (AvroTopic t : topics) {
+            if (!availableTopics.contains(t.getName()))
+                isAvailable = false;
+        }
+        return isAvailable;
     }
 }
