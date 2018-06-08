@@ -63,6 +63,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     }
 
     private void createRows() {
+        /*
         if (mainActivity.getRadarService() != null
                 && !mainActivity.getRadarService().getConnections().equals(savedConnections)) {
             ViewGroup root = mainActivity.findViewById(R.id.deviceTable);
@@ -78,6 +79,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
             }
             savedConnections = mainActivity.getRadarService().getConnections();
         }
+        */
     }
 
     public void update() {
@@ -95,7 +97,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     }
 
     private String getServerStatusMessage() {
-        TimedInt numberOfRecords = mainActivity.getRadarService().getLatestNumberOfRecordsSent();
+        TimedInt numberOfRecords = mainActivity.getRadarService().getLatestNumberOfRecordsRead();
 
         String message = null;
         if (numberOfRecords != null && numberOfRecords.getTime() >= 0 && previousTimestamp != numberOfRecords.getTime()) {
@@ -104,9 +106,9 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
             String messageTimeStamp = timeFormat.format(numberOfRecords.getTime());
 
             if (numberOfRecords.getValue() < 0) {
-                message = String.format(Locale.US, "last upload failed at %1$s", messageTimeStamp);
+                message = String.format(Locale.US, "last download failed at %1$s", messageTimeStamp);
             } else {
-                message = String.format(Locale.US, "last upload at %1$s", messageTimeStamp);
+                message = String.format(Locale.US, "last download at %1$s", messageTimeStamp);
             }
         }
         return message;

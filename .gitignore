@@ -99,3 +99,6 @@ modules.xml
 
 ## Pebble 2
 .lock*
+
+
+app/libs/

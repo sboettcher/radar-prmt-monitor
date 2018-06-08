@@ -16,24 +16,19 @@
 
 package org.radarcns.prmtmonitor;
 
-import android.view.View;
-import org.radarcns.android.IRadarService;
-import org.radarcns.android.MainActivityView;
+import org.radarcns.android.auth.AppAuthState;
+import org.radarcns.android.device.DeviceServiceConnection;
+import org.radarcns.android.device.DeviceServiceProvider;
+import org.radarcns.prmtmonitor.kafka.ServerStatusListener;
+import org.radarcns.data.TimedInt;
 
-public class MonitorMainActivity extends MainActivity {
+import java.util.List;
+import java.util.Set;
 
-    @Override
-    protected MainActivityView createView() {
-        return new MonitorMainActivityView(this);
-    }
+public interface IRadarService {
+    ServerStatusListener.Status getServerStatus();
 
-    @Override
-    protected void onConfigChanged() {
-        super.onConfigChanged();
-    }
+    TimedInt getLatestNumberOfRecordsRead();
 
-    @Override
-    protected Class<? extends RadarService> radarService() {
-        return MonitorRadarService.class;
-    }
+    AppAuthState getAuthState();
 }

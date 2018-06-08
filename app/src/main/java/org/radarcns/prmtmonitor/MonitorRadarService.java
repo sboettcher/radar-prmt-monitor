@@ -16,8 +16,6 @@
 
 package org.radarcns.prmtmonitor;
 
-import org.radarcns.android.RadarService;
-
 import java.util.ArrayList;
 import java.util.List;
 

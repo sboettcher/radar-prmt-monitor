@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">RADAR-CNS pRMT Monitor</string>
+    <string name="app_name">pRMT Device Monitor</string>
 
     <string name="ibi_label">IBI</string>
     <string name="emptyText">—</string>

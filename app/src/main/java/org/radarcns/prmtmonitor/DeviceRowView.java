@@ -32,7 +32,6 @@ import android.widget.TableRow;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.radarcns.android.MainActivity;
 import org.radarcns.android.device.BaseDeviceState;
 import org.radarcns.android.device.DeviceServiceConnection;
 import org.radarcns.android.device.DeviceServiceProvider;
@@ -175,7 +174,7 @@ public class DeviceRowView {
 
         logger.info("setting device filter {}", allowed);
 
-        this.mainActivity.getRadarService().setAllowedDeviceIds(connection, allowed);
+        //this.mainActivity.getRadarService().setAllowedDeviceIds(connection, allowed);
     }
 
     private void reconnectDevice() {

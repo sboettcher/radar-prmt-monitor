@@ -24,25 +24,16 @@
             </intent-filter>
         </receiver>
 
-        <!--
         <activity
-            android:screenOrientation="landscape"
-            android:name=".RadarLoginActivity"
+            android:screenOrientation="reverseLandscape"
+            android:name=".MonitorMainActivity"
             android:label="@string/app_name"
+            android:launchMode="singleInstance"
             android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-        -->
-
-        <activity
-            android:screenOrientation="landscape"
-            android:name=".MonitorMainActivity"
-            android:label="@string/app_name"
-            android:launchMode="singleInstance"
-            android:configChanges="orientation|screenSize">
         </activity>
 
         <!-- ATTENTION: This was auto-generated to add Google Play services to your project for

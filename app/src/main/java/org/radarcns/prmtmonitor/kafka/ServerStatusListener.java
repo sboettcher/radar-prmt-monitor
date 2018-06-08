@@ -14,26 +14,14 @@
  * limitations under the License.
  */
 
-package org.radarcns.prmtmonitor;
+package org.radarcns.prmtmonitor.kafka;
 
-import android.view.View;
-import org.radarcns.android.IRadarService;
-import org.radarcns.android.MainActivityView;
-
-public class MonitorMainActivity extends MainActivity {
-
-    @Override
-    protected MainActivityView createView() {
-        return new MonitorMainActivityView(this);
+public interface ServerStatusListener {
+    enum Status {
+        CONNECTING, CONNECTED, DISCONNECTED, UPLOADING, DISABLED, READY, UPLOADING_FAILED, UNAUTHORIZED
     }
 
-    @Override
-    protected void onConfigChanged() {
-        super.onConfigChanged();
-    }
+    void updateServerStatus(Status status);
 
-    @Override
-    protected Class<? extends RadarService> radarService() {
-        return MonitorRadarService.class;
-    }
+    void updateRecordsRead(String topicName, int numberOfRecords);
 }
