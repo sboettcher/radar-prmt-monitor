@@ -54,7 +54,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -75,8 +74,10 @@ import static org.radarcns.android.RadarConfiguration.UNSAFE_KAFKA_CONNECTION;
 import static org.radarcns.android.auth.portal.GetSubjectParser.getHumanReadableUserId;
 import static org.radarcns.android.auth.portal.ManagementPortalClient.MP_REFRESH_TOKEN_PROPERTY;
 import static org.radarcns.android.device.DeviceService.SERVER_STATUS_CHANGED;
+import static org.radarcns.prmtmonitor.kafka.KafkaDataReader.CONFIG_CONSUMER_DECAY;
 import static org.radarcns.prmtmonitor.kafka.KafkaDataReader.CONFIG_CONSUMER_GROUP;
 import static org.radarcns.prmtmonitor.kafka.KafkaDataReader.CONFIG_CONSUMER_INSTANCE;
+import static org.radarcns.prmtmonitor.kafka.KafkaDataReader.CONFIG_CONSUMER_PERSISTENT;
 import static org.radarcns.prmtmonitor.kafka.KafkaDataReader.CONFIG_CONSUMER_RATE;
 
 @SuppressWarnings("unused")
@@ -103,7 +104,7 @@ public class RadarService extends Service implements ServerStatusListener {
 
     private IBinder binder;
 
-    private KafkaDataReader dataReader;
+    public KafkaDataReader dataReader;
     private String mainActivityClass;
     private HandlerThread mHandlerThread;
     private Handler mHandler;
@@ -204,7 +205,11 @@ public class RadarService extends Service implements ServerStatusListener {
                 try {
                     Set<AvroTopic> topics = new HashSet<>();
                     topics.add(dataReader.createTopic("android_phone_acceleration", PhoneAcceleration.class));
+                    topics.add(dataReader.createTopic("android_phone_battery_level", PhoneAcceleration.class));
                     topics.add(dataReader.createTopic("android_empatica_e4_acceleration", EmpaticaE4Acceleration.class));
+                    topics.add(dataReader.createTopic("android_empatica_e4_battery_level", EmpaticaE4Acceleration.class));
+                    topics.add(dataReader.createTopic("android_biovotion_vsm1_acceleration", PhoneAcceleration.class));
+                    topics.add(dataReader.createTopic("android_biovotion_vsm1_battery_level", PhoneAcceleration.class));
                     dataReader.addTopics(topics);
                 } catch (IOException ex) {
                     logger.error("KafkaDataReader failed!", ex);
@@ -253,6 +258,8 @@ public class RadarService extends Service implements ServerStatusListener {
         String consumerGroup = configuration.getString(CONFIG_CONSUMER_GROUP, "prmt_monitor");
         String consumerInstance = configuration.getString(CONFIG_CONSUMER_INSTANCE, "prmt_monitor_instance");
         int consumerDownloadRate = configuration.getInt(CONFIG_CONSUMER_RATE, 10);
+        boolean consumerPersistentData = configuration.getBoolean(CONFIG_CONSUMER_PERSISTENT, false);
+        int consumerDecay = configuration.getInt(CONFIG_CONSUMER_DECAY, 300000);
 
         KafkaReader reader = new RestReader.Builder()
                 .server(kafkaConfig)
@@ -261,14 +268,7 @@ public class RadarService extends Service implements ServerStatusListener {
                 .useCompression(false)
                 .headers(authState.getOkHttpHeaders())
                 .build();
-        dataReader = new KafkaDataReader(this, reader, 100, consumerDownloadRate, consumerGroup, consumerInstance);
-    }
-
-
-
-
-    public KafkaDataReader getDataReader() {
-        return dataReader;
+        dataReader = new KafkaDataReader(this, reader, consumerGroup, consumerInstance, 100, consumerDownloadRate, consumerPersistentData, consumerDecay);
     }
 
 
@@ -408,6 +408,11 @@ public class RadarService extends Service implements ServerStatusListener {
         @Override
         public AppAuthState getAuthState() {
             return authState;
+        }
+
+        @Override
+        public KafkaDataReader getDataReader() {
+            return dataReader;
         }
     }
 

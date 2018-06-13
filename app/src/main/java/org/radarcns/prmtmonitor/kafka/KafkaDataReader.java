@@ -21,6 +21,7 @@ import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 
 import org.apache.avro.Schema;
+import org.apache.avro.reflect.MapEntry;
 import org.apache.avro.specific.SpecificRecord;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -39,6 +40,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -67,7 +69,7 @@ public class KafkaDataReader<V> implements Closeable {
     private final HandlerThread mHandlerThread;
     private final Handler mHandler;
 
-    private HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>>> topicData;
+    private HashMap<String, HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>>>> connectionTopicData; // TODO: put this in a simple external class?
 
     private Runnable downloadFuture;
     private Runnable subscribeFuture;
@@ -77,12 +79,17 @@ public class KafkaDataReader<V> implements Closeable {
     private String consumerGroup;
     private String consumerInstance;
 
+    private boolean persistentData;
+    private int dataDecayMs;
+
     public static final String CONFIG_CONSUMER_GROUP = "consumer_group";
     public static final String CONFIG_CONSUMER_INSTANCE = "consumer_instance";
     public static final String CONFIG_CONSUMER_RATE = "consumer_download_rate";
+    public static final String CONFIG_CONSUMER_PERSISTENT = "consumer_persistent_data";
+    public static final String CONFIG_CONSUMER_DECAY = "consumer_data_decay_ms";
 
     public KafkaDataReader(@NonNull ServerStatusListener listener, @NonNull
-            KafkaReader reader, int getLimit, long downloadRate, String consumerGroup, String consumerInstance) {
+            KafkaReader reader, String consumerGroup, String consumerInstance, int getLimit, long downloadRate, boolean persistentData, int dataDecayMs) {
         this.listener = listener;
         this.reader = reader;
         this.topicReader = null;
@@ -92,6 +99,9 @@ public class KafkaDataReader<V> implements Closeable {
 
         this.consumerGroup = consumerGroup;
         this.consumerInstance = consumerInstance;
+
+        this.persistentData = persistentData;
+        this.dataDecayMs = dataDecayMs;
 
         mHandlerThread = new HandlerThread("data-reader", THREAD_PRIORITY_BACKGROUND);
         mHandlerThread.start();
@@ -121,7 +131,7 @@ public class KafkaDataReader<V> implements Closeable {
         synchronized (this) {
             downloadFuture = null;
             subscribeFuture = null;
-            topicData = new HashMap<>();
+            connectionTopicData = new HashMap<>();
             setDownloadRate(downloadRate);
         }
         logger.info("Remote Config: Upload rate is '{}' sec per upload", downloadRate);
@@ -202,8 +212,7 @@ public class KafkaDataReader<V> implements Closeable {
                             topicReader.close(consumerGroup, consumerInstance);
                             topicReader.consumer(consumerGroup, consumerInstance);
 
-                            if (availableTopics.isEmpty())
-                                availableTopics = filterTopics(topicReader.topics());
+                            availableTopics = filterTopics(topicReader.topics());
                             logger.info("{} topics available on server", availableTopics.size());
                         }
                         if (checkAvailableTopics(newTopics)) {
@@ -235,6 +244,8 @@ public class KafkaDataReader<V> implements Closeable {
         try {
             JSONArray jsonResponse = this.topicReader.read();
 
+            // process the new data per topic
+            HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>> topicData = new HashMap<>();
             for (int i = 0; i < jsonResponse.length(); i++) {
                 JSONObject sample = jsonResponse.getJSONObject(i);
                 String topic = sample.getString("topic");
@@ -248,10 +259,30 @@ public class KafkaDataReader<V> implements Closeable {
                 topicData.get(topic).add(new AbstractMap.SimpleEntry<>(key, value));
             }
 
+            if (!persistentData)
+                decayData();
+
+            // status update; map by user ID --> connections
             for (Map.Entry<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>> data : topicData.entrySet()) {
                 listener.updateRecordsRead(data.getKey(), data.getValue().size());
                 logger.info("Number of values read from topic {}: {}", data.getKey(), data.getValue().size());
+
+                for (AbstractMap.SimpleEntry<JSONObject, JSONObject> sample : data.getValue()) {
+                    String userId = sample.getKey().getString("userId");
+
+                    // check if user id exists
+                    if (!connectionTopicData.containsKey(userId)) {
+                        connectionTopicData.put(userId, new HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>>());
+                    }
+                    // check if topic for user id exists
+                    if (!connectionTopicData.get(userId).containsKey(data.getKey())) {
+                        connectionTopicData.get(userId).put(data.getKey(), new ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>());
+                    }
+
+                    connectionTopicData.get(userId).get(data.getKey()).add(sample);
+                }
             }
+
         } catch (IOException ex) {
             logger.error("Failed to read!", ex);
         } catch (JSONException ex) {
@@ -259,6 +290,57 @@ public class KafkaDataReader<V> implements Closeable {
         }
     }
 
+    public HashSet<String> getConnections() {
+        return new HashSet<>(Collections.unmodifiableSet(connectionTopicData.keySet()));
+    }
+    public HashSet<String> getTopics(String userId) {
+        if (connectionTopicData.containsKey(userId)) {
+            return new HashSet<>(Collections.unmodifiableSet(connectionTopicData.get(userId).keySet()));
+        } else {
+            return new HashSet<>();
+        }
+    }
+    public HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>>> getTopicData(String userId) {
+        if (connectionTopicData.containsKey(userId)) {
+            return new HashMap<>(Collections.unmodifiableMap(connectionTopicData.get(userId)));
+        } else {
+            return new HashMap<>();
+        }
+    }
+    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getData(String userId, String topic) {
+        if (connectionTopicData.containsKey(userId) && connectionTopicData.get(userId).containsKey(topic)) {
+            return connectionTopicData.get(userId).get(topic);
+        } else {
+            return new ArrayList<>();
+        }
+    }
+
+
+    private void decayData() {
+        for (String userId : connectionTopicData.keySet()) {
+            for (String topic : connectionTopicData.get(userId).keySet()) {
+                int dataLengthBefore = connectionTopicData.get(userId).get(topic).size();
+                for (Iterator<AbstractMap.SimpleEntry<JSONObject, JSONObject>> sampleIterator = connectionTopicData.get(userId).get(topic).iterator(); sampleIterator.hasNext(); ) {
+                    AbstractMap.SimpleEntry<JSONObject, JSONObject> sample = sampleIterator.next();
+                    double received = Double.NaN;
+                    double current = System.currentTimeMillis();
+
+                    try {
+                        received = sample.getValue().getDouble("timeReceived") * 1000;
+                    } catch (JSONException ex) {
+                        logger.error("Error trying to parse received timestamp!", ex);
+                    }
+
+                    if (!Double.isNaN(received) && received < current - dataDecayMs) {
+                        sampleIterator.remove();
+                    }
+                }
+                int dataLengthAfter = connectionTopicData.get(userId).get(topic).size();
+                if (dataLengthAfter != dataLengthBefore)
+                    logger.info("Decayed {} samples for {}.{}, new total: {}", dataLengthBefore-dataLengthAfter, userId, topic, dataLengthAfter);
+            }
+        }
+    }
 
 
     /**

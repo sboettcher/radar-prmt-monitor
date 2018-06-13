@@ -16,20 +16,9 @@
 
 package org.radarcns.prmtmonitor;
 
-public class MonitorMainActivity extends MainActivity {
-
-    @Override
-    protected MainActivityView createView() {
-        return new MonitorMainActivityView(this);
-    }
-
-    @Override
-    protected void onConfigChanged() {
-        super.onConfigChanged();
-    }
-
-    @Override
-    protected Class<? extends RadarService> radarService() {
-        return MonitorRadarService.class;
-    }
+public interface MainActivityView {
+    /**
+     * Update the user interface.
+     */
+    void update();
 }

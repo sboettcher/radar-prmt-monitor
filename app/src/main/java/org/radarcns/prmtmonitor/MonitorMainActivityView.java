@@ -20,7 +20,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import org.radarcns.android.MainActivityView;
 import org.radarcns.android.RadarConfiguration;
 import org.radarcns.android.device.DeviceServiceProvider;
 import org.radarcns.data.TimedInt;
@@ -28,9 +27,14 @@ import org.radarcns.data.TimedInt;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.radarcns.android.RadarConfiguration.CONDENSED_DISPLAY_KEY;
 
@@ -38,8 +42,8 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     private static final DateFormat timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.US);
 
     private final MonitorMainActivity mainActivity;
-    private final List<DeviceRowView> rows = new ArrayList<>();
-    private List<DeviceServiceProvider> savedConnections;
+    private final Map<String,DeviceRowView> rows = new HashMap<>();
+    private HashSet<String> savedConnections;
 
     private long previousTimestamp;
     private volatile String newServerStatus;
@@ -56,6 +60,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     MonitorMainActivityView(MonitorMainActivity activity) {
         this.mainActivity = activity;
         this.previousUserId = "";
+        this.savedConnections = new HashSet<>();
 
         initializeViews();
 
@@ -63,32 +68,31 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     }
 
     private void createRows() {
-        /*
-        if (mainActivity.getRadarService() != null
-                && !mainActivity.getRadarService().getConnections().equals(savedConnections)) {
+        final Set tmp = mainActivity.getRadarService().getDataReader().getConnections();
+        final HashSet<String> newConnections = new HashSet<String>(tmp);
+        //newConnections.add("TEST");
+        if (mainActivity.getRadarService() != null && !this.savedConnections.equals(newConnections)) {
             ViewGroup root = mainActivity.findViewById(R.id.deviceTable);
             while (root.getChildCount() > 1) {
                 root.removeView(root.getChildAt(1));
             }
             rows.clear();
-            boolean condensed = RadarConfiguration.getInstance().getBoolean(CONDENSED_DISPLAY_KEY, true);
-            for (DeviceServiceProvider provider : mainActivity.getRadarService().getConnections()) {
-                if (provider.isDisplayable()) {
-                    rows.add(new DeviceRowView(mainActivity, provider, root, condensed));
-                }
+            for (Object connection : newConnections) {
+                rows.put((String) connection, new DeviceRowView(mainActivity, (String) connection, root));
             }
-            savedConnections = mainActivity.getRadarService().getConnections();
+            this.savedConnections = newConnections;
         }
-        */
     }
 
     public void update() {
-        createRows();
+        //createRows();
 
         userId = mainActivity.getUserId();
         projectId = mainActivity.getProjectId();
-        for (DeviceRowView row : rows) {
-            row.update();
+        for (Map.Entry<String,DeviceRowView> row : rows.entrySet()) {
+            HashMap topicData = mainActivity.getRadarService().getDataReader().getTopicData(row.getKey());
+            if (!topicData.isEmpty())
+                row.getValue().update(topicData);
         }
         if (mainActivity.getRadarService() != null) {
             newServerStatus = getServerStatusMessage();
@@ -125,7 +129,8 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
 
     @Override
     public void run() {
-        for (DeviceRowView row : rows) {
+        createRows();
+        for (DeviceRowView row : rows.values()) {
             row.display();
         }
         updateServerStatus();

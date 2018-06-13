@@ -29,7 +29,9 @@
     <string name="label_firebase_status">Firebase</string>
     <string name="label_group_id_input">Patient ID: %1$s</string>
     <string name="label_patient_id_label">Patient ID</string>
-    <string name="empaticaE4DisplayName">E4</string>
+    <string name="tabDisplayName">Tablet</string>
+    <string name="e4DisplayName">E4</string>
+    <string name="biovDisplayName">Biovotion</string>
     <string name="deviceTypeLabel2">Angel</string>
     <string name="pebble2DisplayName">Pebble</string>
     <string name="phoneServiceDisplayName">Phone</string>
@@ -56,9 +58,9 @@
     <string name="filter_help_label">Enter part of a device name or MAC address. Separate multiple options with commas.</string>
     <string name="firebase_fetching">Fetching remote config</string>
 
-    <string name="patient_separator">Person Details</string>
+    <string name="patient_separator">Debug</string>
     <string name="patient_id_input_dialog">User ID</string>
-    <string name="devices_separator">Sensors</string>
+    <string name="devices_separator">Connections</string>
     <string name="sync_separator">Synchronisation</string>
     <string name="sync_default">-</string>
     <string name="sync_button_description">Synchronize now</string>

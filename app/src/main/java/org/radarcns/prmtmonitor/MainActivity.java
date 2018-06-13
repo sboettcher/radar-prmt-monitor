@@ -37,7 +37,6 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.LocalBroadcastManager;
 
-import org.radarcns.android.MainActivityView;
 import org.radarcns.android.RadarConfiguration;
 import org.radarcns.android.auth.AppAuthState;
 import org.radarcns.android.auth.LoginActivity;

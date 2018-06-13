@@ -16,35 +16,27 @@
 
 package org.radarcns.prmtmonitor;
 
-import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.content.SharedPreferences;
-import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import org.radarcns.android.device.BaseDeviceState;
-import org.radarcns.android.device.DeviceServiceConnection;
-import org.radarcns.android.device.DeviceServiceProvider;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.radarcns.android.device.DeviceStatusListener;
-import org.radarcns.android.util.Boast;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Array;
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Displays a single device row.
@@ -66,206 +58,148 @@ public class DeviceRowView {
 
     private final MainActivity mainActivity;
 
-    private final DeviceServiceConnection connection;
-    private final View mStatusIcon;
-    private final ImageView mBatteryLabel;
-    private final TextView mDeviceNameLabel;
-    private final SharedPreferences devicePreferences;
-    private String filter;
-    private BaseDeviceState state;
-    private String deviceName;
-    private float previousBatteryLevel = Float.NaN;
+    private final String connection;
     private String previousName;
-    private DeviceStatusListener.Status previousStatus = null;
+    private final TextView mConnectionNameLabel;
 
-    DeviceRowView(MainActivity mainActivity, DeviceServiceProvider provider, ViewGroup root, boolean condensedDisplay) {
+    private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mTabData;
+    private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mTabBat;
+    private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mE4Data;
+    private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mE4Bat;
+    private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mBiovData;
+    private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mBiovBat;
+
+    private final View mTabStatusIcon;
+    private final ImageView mTabBatteryLabel;
+    private final TextView mTabBatteryValue;
+    private final View mE4StatusIcon;
+    private final ImageView mE4BatteryLabel;
+    private final TextView mE4BatteryValue;
+    private final View mBiovStatusIcon;
+    private final ImageView mBiovBatteryLabel;
+    private final TextView mBiovBatteryValue;
+
+    private DeviceStatusListener.Status prevTabStatus = null;
+    private float prevTabBatteryLevel = Float.NaN;
+    private DeviceStatusListener.Status prevE4Status = null;
+    private float prevE4BatteryLevel = Float.NaN;
+    private DeviceStatusListener.Status prevBiovStatus = null;
+    private float prevBiovBatteryLevel = Float.NaN;
+
+    DeviceRowView(MainActivity mainActivity, String connection, ViewGroup root) {
         this.mainActivity = mainActivity;
-        this.connection = provider.getConnection();
-        devicePreferences = this.mainActivity.getSharedPreferences("device." + connection.getServiceClassName(), Context.MODE_PRIVATE);
-        logger.info("Creating device row for provider {} and connection {}", provider, connection);
+        this.connection = connection;
+        logger.info("Creating row for connection {}", connection);
         LayoutInflater inflater = (LayoutInflater) this.mainActivity.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
         inflater.inflate(R.layout.activity_overview_device_row, root);
         TableRow row = (TableRow) root.getChildAt(root.getChildCount() - 1);
+        mConnectionNameLabel = row.findViewById(R.id.connectionName_label);
 
-        mStatusIcon = row.findViewById(R.id.status_icon);
-        mDeviceNameLabel = row.findViewById(R.id.deviceName_label);
-        mBatteryLabel = row.findViewById(R.id.battery_label);
-        Button mDeviceInput = row.findViewById(R.id.inputDeviceButton);
+        mTabData = new ArrayList<>();
+        mTabBat = new ArrayList<>();
+        mE4Data = new ArrayList<>();
+        mE4Bat = new ArrayList<>();
+        mBiovData = new ArrayList<>();
+        mBiovBat = new ArrayList<>();
 
-        if (provider.isFilterable()) {
-            mDeviceInput.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    dialogDeviceName();
-                }
-            });
-//            mDeviceInput.setVisibility(View.VISIBLE);
-            mDeviceInput.setEnabled(true);
-        }
+        mTabStatusIcon = row.findViewById(R.id.tab_status_icon);
+        mTabBatteryLabel = row.findViewById(R.id.tab_battery_label);
+        mTabBatteryValue = row.findViewById(R.id.tab_battery_value);
+        mE4StatusIcon = row.findViewById(R.id.e4_status_icon);
+        mE4BatteryLabel = row.findViewById(R.id.e4_battery_label);
+        mE4BatteryValue = row.findViewById(R.id.e4_battery_value);
+        mBiovStatusIcon = row.findViewById(R.id.biov_status_icon);
+        mBiovBatteryLabel = row.findViewById(R.id.biov_battery_label);
+        mBiovBatteryValue = row.findViewById(R.id.biov_battery_value);
 
-        mDeviceInput.setText(provider.getDisplayName());
-
-        filter = "";
-        setFilter(devicePreferences.getString("filter", ""));
-        row.findViewById(R.id.refreshButton).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                reconnectDevice();
-            }
-        });
+        mConnectionNameLabel.setText(connection);
     }
 
-    private void dialogDeviceName() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this.mainActivity);
-        builder.setTitle(this.mainActivity.getString(R.string.filter_title));
-
-        // Layout containing label and input
-        final LinearLayout layout = new LinearLayout(this.mainActivity);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(70,0,70,0);
-
-        // Label
-        TextView label = new TextView(this.mainActivity);
-        label.setText(R.string.filter_help_label);
-        layout.addView(label);
-
-        // Set up the input
-        final EditText input = new EditText(this.mainActivity);
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        layout.addView(input);
-        builder.setView(layout);
-
-        // Set up the buttons
-        input.setText(filter);
-        builder.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                setFilter(input.getText().toString().trim());
-            }
-        });
-        builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.cancel();
-            }
-        });
-
-        builder.show();
-    }
-
-    private void setFilter(String newValue) {
-        if (filter.equals(newValue)) {
-            logger.info("device filter did not change - ignoring");
-            return;
-        }
-        // Set new value and process
-        filter = newValue;
-        devicePreferences.edit().putString("filter", filter).apply();
-
-        String splitRegex = this.mainActivity.getString(R.string.filter_split_regex);
-        Set<String> allowed = new HashSet<>();
-        for (String s : filter.split(splitRegex)) {
-            String trimmed = s.trim();
-            if (!trimmed.isEmpty()) {
-                allowed.add(trimmed);
-            }
-        }
-
-        logger.info("setting device filter {}", allowed);
-
-        //this.mainActivity.getRadarService().setAllowedDeviceIds(connection, allowed);
-    }
-
-    private void reconnectDevice() {
-        try {
-            // will restart scanning after disconnect
-            if (connection.isRecording()) {
-                connection.stopRecording();
-            }
-        } catch (IndexOutOfBoundsException iobe) {
-            Boast.makeText(this.mainActivity, "Could not restart scanning, there is no valid row index associated with this button.", Toast.LENGTH_LONG).show();
-            logger.warn(iobe.getMessage());
-        }
-    }
-
-    void update() {
-        if (connection.hasService()) {
-            state = connection.getDeviceData();
-            switch (state.getStatus()) {
-                case CONNECTED:
-                case CONNECTING:
-                    deviceName = connection.getDeviceName();
-                    break;
-                default:
-                    deviceName = null;
-                    break;
-            }
-        } else {
-            state = null;
-            deviceName = null;
-        }
-        if (deviceName != null) {
-            deviceName = deviceName.replace("Empatica", "").trim();
-        }
+    void update(HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>>> topicData) {
+        mTabData = topicData.get("android_phone_acceleration") == null ? null : new ArrayList<>(topicData.get("android_phone_acceleration"));
+        mTabBat = topicData.get("android_phone_battery_level") == null ? null : new ArrayList<>(topicData.get("android_phone_battery_level"));
+        mE4Data = topicData.get("android_empatica_e4_acceleration") == null ? null : new ArrayList<>(topicData.get("android_empatica_e4_acceleration"));
+        mE4Bat = topicData.get("android_empatica_e4_battery_level") == null ? null : new ArrayList<>(topicData.get("android_empatica_e4_battery_level"));
+        mBiovData = topicData.get("android_biovotion_vsm1_acceleration") == null ? null : new ArrayList<>(topicData.get("android_biovotion_vsm1_acceleration"));
+        mBiovBat = topicData.get("android_biovotion_vsm1_battery_level") == null ? null : new ArrayList<>(topicData.get("android_biovotion_vsm1_battery_level"));
     }
 
     void display() {
-        updateBattery();
-        updateDeviceName();
-        updateDeviceStatus();
+        updateConnectionName();
+
+        prevTabStatus = updateStatus(mTabData, prevTabStatus, mTabStatusIcon);
+        prevTabBatteryLevel = updateBattery(mTabBat, prevTabBatteryLevel, mTabBatteryValue, mTabBatteryLabel);
+
+        prevE4Status = updateStatus(mE4Data, prevE4Status, mE4StatusIcon);
+        prevE4BatteryLevel = updateBattery(mE4Bat, prevE4BatteryLevel, mE4BatteryValue, mE4BatteryLabel);
+
+        prevBiovStatus = updateStatus(mBiovData, prevBiovStatus, mBiovStatusIcon);
+        prevBiovBatteryLevel = updateBattery(mBiovBat, prevBiovBatteryLevel, mBiovBatteryValue, mBiovBatteryLabel);
     }
 
-    private void updateDeviceStatus() {
+    private DeviceStatusListener.Status updateStatus(ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> statusData, DeviceStatusListener.Status prevStatus, View statusIconView) {
         // Connection status. Change icon used.
-        DeviceStatusListener.Status status;
-        if (state == null) {
-            status = DeviceStatusListener.Status.DISCONNECTED;
+        DeviceStatusListener.Status newStatus;
+        if (statusData == null || statusData.isEmpty()) {
+            newStatus = DeviceStatusListener.Status.DISCONNECTED;
         } else {
-            status = state.getStatus();
+            newStatus = DeviceStatusListener.Status.CONNECTED;
         }
-        if (!Objects.equals(status, previousStatus)) {
-            logger.info("Device status is {}", status);
-            previousStatus = status;
-            Integer statusIcon = deviceStatusIconMap.get(status);
+        if (!Objects.equals(newStatus, prevStatus)) {
+            logger.info("Status is {}", newStatus);
+            Integer statusIcon = deviceStatusIconMap.get(newStatus);
             int resource = statusIcon != null ? statusIcon : deviceStatusIconDefault;
-            mStatusIcon.setBackgroundResource(resource);
+            statusIconView.setBackgroundResource(resource);
         }
+        return newStatus;
     }
 
-    private void updateBattery() {
-        // Battery levels observed for E4 are 0.01, 0.1, 0.45 or 1
-        float batteryLevel = state == null ? Float.NaN : state.getBatteryLevel();
-        if (Objects.equals(previousBatteryLevel, batteryLevel)) {
-            return;
+    private float updateBattery(ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> batteryData, float prevValue, TextView batValueView, ImageView batLabelView) {
+        float batteryLevel = Float.NaN;
+        if (batteryData != null && !batteryData.isEmpty()) {
+            try {
+                batteryLevel = (float) batteryData.get(batteryData.size()-1).getValue().getDouble("batteryLevel");
+            } catch (JSONException ex) {
+                logger.error("Error trying to parse battery level", ex);
+            }
         }
-        previousBatteryLevel = batteryLevel;
+
+        if (Objects.equals((int)(prevValue*100), (int)(batteryLevel*100))) {
+            return prevValue;
+        }
+
+        String batText = Float.isNaN(batteryLevel) ? "\u2014" : Integer.toString((int)(batteryLevel*100)) + "%";
+        batValueView.setText(batText);
         if (Float.isNaN(batteryLevel)) {
-            mBatteryLabel.setImageResource(R.drawable.ic_battery_unknown);
+            batLabelView.setImageResource(R.drawable.ic_battery_unknown);
         } else if (batteryLevel < 0.1) {
-            mBatteryLabel.setImageResource(R.drawable.ic_battery_empty);
+            batLabelView.setImageResource(R.drawable.ic_battery_empty);
         } else if (batteryLevel < 0.3) {
-            mBatteryLabel.setImageResource(R.drawable.ic_battery_low);
+            batLabelView.setImageResource(R.drawable.ic_battery_low);
         } else if (batteryLevel < 0.6) {
-            mBatteryLabel.setImageResource(R.drawable.ic_battery_50);
+            batLabelView.setImageResource(R.drawable.ic_battery_50);
         } else if (batteryLevel < 0.85) {
-            mBatteryLabel.setImageResource(R.drawable.ic_battery_80);
+            batLabelView.setImageResource(R.drawable.ic_battery_80);
         } else {
-            mBatteryLabel.setImageResource(R.drawable.ic_battery_full);
+            batLabelView.setImageResource(R.drawable.ic_battery_full);
         }
+
+        return batteryLevel;
     }
 
-    private void updateDeviceName() {
-        if (Objects.equals(deviceName, previousName)) {
+    private void updateConnectionName() {
+        if (Objects.equals(connection, previousName)) {
             return;
         }
-        previousName = deviceName;
+        previousName = connection;
         // Restrict length of name that is shown.
-        if (deviceName != null && deviceName.length() > MAX_UI_DEVICE_NAME_LENGTH - 3) {
-            deviceName = deviceName.substring(0, MAX_UI_DEVICE_NAME_LENGTH) + "...";
+        String newName = connection;
+        if (newName != null && newName.length() > MAX_UI_DEVICE_NAME_LENGTH - 3) {
+            newName = newName.substring(0, MAX_UI_DEVICE_NAME_LENGTH) + "...";
         }
 
         // \u2014 == —
-        mDeviceNameLabel.setText(deviceName == null ? "\u2014" : deviceName);
+        mConnectionNameLabel.setText(newName == null ? "\u2014" : newName);
     }
 }

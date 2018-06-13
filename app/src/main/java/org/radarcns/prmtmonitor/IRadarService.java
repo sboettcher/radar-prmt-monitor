@@ -19,6 +19,7 @@ package org.radarcns.prmtmonitor;
 import org.radarcns.android.auth.AppAuthState;
 import org.radarcns.android.device.DeviceServiceConnection;
 import org.radarcns.android.device.DeviceServiceProvider;
+import org.radarcns.prmtmonitor.kafka.KafkaDataReader;
 import org.radarcns.prmtmonitor.kafka.ServerStatusListener;
 import org.radarcns.data.TimedInt;
 
@@ -31,4 +32,6 @@ public interface IRadarService {
     TimedInt getLatestNumberOfRecordsRead();
 
     AppAuthState getAuthState();
+
+    KafkaDataReader getDataReader();
 }
