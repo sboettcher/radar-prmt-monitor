@@ -241,45 +241,49 @@ public class KafkaDataReader<V> implements Closeable {
 
 
     private void read() {
+        HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>> topicData = new HashMap<>();
         try {
-            JSONArray jsonResponse = this.topicReader.read();
+            synchronized (this) {
+                JSONArray jsonResponse = this.topicReader.read();
 
-            // process the new data per topic
-            HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>> topicData = new HashMap<>();
-            for (int i = 0; i < jsonResponse.length(); i++) {
-                JSONObject sample = jsonResponse.getJSONObject(i);
-                String topic = sample.getString("topic");
-                JSONObject key = sample.getJSONObject("key");
-                JSONObject value = sample.getJSONObject("value");
+                // process the new data per topic
+                for (int i = 0; i < jsonResponse.length(); i++) {
+                    JSONObject sample = jsonResponse.getJSONObject(i);
+                    String topic = sample.getString("topic");
+                    JSONObject key = sample.getJSONObject("key");
+                    JSONObject value = sample.getJSONObject("value");
 
-                if (!topicData.containsKey(topic)) {
-                    topicData.put(topic, new ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>());
+                    if (!topicData.containsKey(topic)) {
+                        topicData.put(topic, new ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>());
+                    }
+
+                    topicData.get(topic).add(new AbstractMap.SimpleEntry<>(key, value));
                 }
-
-                topicData.get(topic).add(new AbstractMap.SimpleEntry<>(key, value));
             }
 
-            if (!persistentData)
-                decayData();
+            synchronized (this) {
+                if (!persistentData)
+                    decayData(dataDecayMs);
 
-            // status update; map by user ID --> connections
-            for (Map.Entry<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>> data : topicData.entrySet()) {
-                listener.updateRecordsRead(data.getKey(), data.getValue().size());
-                logger.info("Number of values read from topic {}: {}", data.getKey(), data.getValue().size());
+                // status update; map by user ID --> connections
+                for (Map.Entry<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>> data : topicData.entrySet()) {
+                    listener.updateRecordsRead(data.getKey(), data.getValue().size());
+                    logger.info("Number of values read from topic {}: {}", data.getKey(), data.getValue().size());
 
-                for (AbstractMap.SimpleEntry<JSONObject, JSONObject> sample : data.getValue()) {
-                    String userId = sample.getKey().getString("userId");
+                    for (AbstractMap.SimpleEntry<JSONObject, JSONObject> sample : data.getValue()) {
+                        String userId = sample.getKey().getString("userId");
 
-                    // check if user id exists
-                    if (!connectionTopicData.containsKey(userId)) {
-                        connectionTopicData.put(userId, new HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>>());
+                        // check if user id exists
+                        if (!connectionTopicData.containsKey(userId)) {
+                            connectionTopicData.put(userId, new HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>>());
+                        }
+                        // check if topic for user id exists
+                        if (!connectionTopicData.get(userId).containsKey(data.getKey())) {
+                            connectionTopicData.get(userId).put(data.getKey(), new ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>());
+                        }
+
+                        connectionTopicData.get(userId).get(data.getKey()).add(sample);
                     }
-                    // check if topic for user id exists
-                    if (!connectionTopicData.get(userId).containsKey(data.getKey())) {
-                        connectionTopicData.get(userId).put(data.getKey(), new ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>>());
-                    }
-
-                    connectionTopicData.get(userId).get(data.getKey()).add(sample);
                 }
             }
 
@@ -316,7 +320,7 @@ public class KafkaDataReader<V> implements Closeable {
     }
 
 
-    private void decayData() {
+    private void decayData(int dataDecayMs) {
         for (String userId : connectionTopicData.keySet()) {
             for (String topic : connectionTopicData.get(userId).keySet()) {
                 int dataLengthBefore = connectionTopicData.get(userId).get(topic).size();

@@ -68,10 +68,13 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     }
 
     private void createRows() {
+        createRows(false);
+    }
+    private void createRows(boolean force) {
         final Set tmp = mainActivity.getRadarService().getDataReader().getConnections();
         final HashSet<String> newConnections = new HashSet<String>(tmp);
         //newConnections.add("TEST");
-        if (mainActivity.getRadarService() != null && !this.savedConnections.equals(newConnections)) {
+        if (force || (mainActivity.getRadarService() != null && !this.savedConnections.equals(newConnections))) {
             ViewGroup root = mainActivity.findViewById(R.id.deviceTable);
             while (root.getChildCount() > 1) {
                 root.removeView(root.getChildAt(1));
@@ -130,6 +133,8 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     @Override
     public void run() {
         createRows();
+        if (rows.size() != savedConnections.size())
+            createRows(true);
         for (DeviceRowView row : rows.values()) {
             row.display();
         }

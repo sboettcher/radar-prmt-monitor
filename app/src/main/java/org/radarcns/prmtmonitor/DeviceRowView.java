@@ -86,6 +86,13 @@ public class DeviceRowView {
     private DeviceStatusListener.Status prevBiovStatus = null;
     private float prevBiovBatteryLevel = Float.NaN;
 
+    private double lastTabStatus = 0;
+    private double lastTabBattery = 0;
+    private double lastE4Status = 0;
+    private double lastE4Battery = 0;
+    private double lastBiovStatus = 0;
+    private double lastBiovBattery = 0;
+
     DeviceRowView(MainActivity mainActivity, String connection, ViewGroup root) {
         this.mainActivity = mainActivity;
         this.connection = connection;
@@ -128,14 +135,45 @@ public class DeviceRowView {
     void display() {
         updateConnectionName();
 
+        updateTab();
+        updateE4();
+        updateBiov();
+
+        updateLast();
+    }
+
+    private void updateTab(){
+        // update status
         prevTabStatus = updateStatus(mTabData, prevTabStatus, mTabStatusIcon);
+        if (mTabData != null && !mTabData.isEmpty())
+            lastTabStatus = System.currentTimeMillis();
+
+        // update battery
         prevTabBatteryLevel = updateBattery(mTabBat, prevTabBatteryLevel, mTabBatteryValue, mTabBatteryLabel);
+        if (mTabBat != null && !mTabBat.isEmpty())
+            lastTabStatus = System.currentTimeMillis();
+    }
 
+    private void updateE4() {
         prevE4Status = updateStatus(mE4Data, prevE4Status, mE4StatusIcon);
-        prevE4BatteryLevel = updateBattery(mE4Bat, prevE4BatteryLevel, mE4BatteryValue, mE4BatteryLabel);
+        if (mE4Data != null && !mE4Data.isEmpty())
+            lastE4Status = System.currentTimeMillis();
 
+        // update battery
+        prevE4BatteryLevel = updateBattery(mE4Bat, prevE4BatteryLevel, mE4BatteryValue, mE4BatteryLabel);
+        if (mE4Bat != null && !mE4Bat.isEmpty())
+            lastE4Status = System.currentTimeMillis();
+    }
+
+    private void updateBiov() {
         prevBiovStatus = updateStatus(mBiovData, prevBiovStatus, mBiovStatusIcon);
+        if (mBiovData != null && !mBiovData.isEmpty())
+            lastBiovStatus = System.currentTimeMillis();
+
+        // update battery
         prevBiovBatteryLevel = updateBattery(mBiovBat, prevBiovBatteryLevel, mBiovBatteryValue, mBiovBatteryLabel);
+        if (mBiovBat != null && !mBiovBat.isEmpty())
+            lastBiovStatus = System.currentTimeMillis();
     }
 
     private DeviceStatusListener.Status updateStatus(ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> statusData, DeviceStatusListener.Status prevStatus, View statusIconView) {
@@ -156,12 +194,14 @@ public class DeviceRowView {
     }
 
     private float updateBattery(ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> batteryData, float prevValue, TextView batValueView, ImageView batLabelView) {
-        float batteryLevel = Float.NaN;
+        float batteryLevel = prevValue;
         if (batteryData != null && !batteryData.isEmpty()) {
             try {
                 batteryLevel = (float) batteryData.get(batteryData.size()-1).getValue().getDouble("batteryLevel");
             } catch (JSONException ex) {
                 logger.error("Error trying to parse battery level", ex);
+            } catch (NullPointerException ex) {
+                logger.error("Something went wrong during a battery update step!", ex);
             }
         }
 
@@ -201,5 +241,9 @@ public class DeviceRowView {
 
         // \u2014 == —
         mConnectionNameLabel.setText(newName == null ? "\u2014" : newName);
+    }
+
+    private void updateLast() {
+
     }
 }
