@@ -125,18 +125,16 @@ class RestTopicReader implements KafkaTopicReader {
 
     @Override
     public void subscribe(Set<AvroTopic> topics) throws IOException {
-        this.topics.addAll(topics);
-
         if (!has_consumer) {
             throw new IOException("Consumer has not been created for this reader!");
         }
 
-        if (this.topics.isEmpty()) {
+        if (topics.isEmpty()) {
             logger.warn("No topics given to subscribe to.");
             return;
         }
 
-        logger.info("Subscribing to topics {}", this.topics);
+        logger.info("Subscribing to topics {}", topics);
 
         RestClient restClient;
         RestReader.RequestProperties requestProperties;
@@ -146,7 +144,7 @@ class RestTopicReader implements KafkaTopicReader {
         }
 
         final ArrayList<String> stringTopics = new ArrayList<>();
-        for (AvroTopic t : this.topics) {
+        for (AvroTopic t : topics) {
             stringTopics.add(t.getName());
         }
 
@@ -169,12 +167,110 @@ class RestTopicReader implements KafkaTopicReader {
         if (state.getState() == ConnectionState.State.UNAUTHORIZED) {
             throw new AuthenticationException("Request unauthorized");
         }
+
+        this.topics.addAll(topics);
+    }
+
+    // curl -k -X POST -H "Content-Type: application/vnd.kafka.v2+json"
+    // --data '{"partitions":[{"topic":"android_phone_acceleration","partition":0},{"topic":"android_phone_acceleration","partition":1},{"topic":"android_phone_acceleration","partition":2}]}'
+    // "https://nz1200.ukl.uni-freiburg.de/kafka/consumers/test_group/instances/test_instance/assignments"
+    @Override
+    public void assignPartitions(Set<AvroTopic> topics, Set<Integer> partitions) throws IOException {
+        if (!has_consumer) {
+            throw new IOException("Consumer has not been created for this reader!");
+        }
+
+        if (topics.isEmpty()) {
+            logger.warn("No topics given to subscribe to.");
+            return;
+        }
+
+        logger.info("Assigning partitions to topics {}", topics);
+
+        RestClient restClient;
+        RestReader.RequestProperties requestProperties;
+        synchronized (reader) {
+            restClient = reader.getRestClient();
+            requestProperties = reader.getRequestProperties();
+        }
+
+        TopicRequestData data;
+        try {
+            data = getAssignmentsData(topics, partitions);
+        } catch (JSONException ex) {
+            throw new IOException("Error trying to add assignments to JSON data: ", ex);
+        }
+
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", requestProperties.contentType.toString());
+
+        Request request = buildRequest("POST", restClient.getRelativeUrl(
+                "consumers/" + consumer_group
+                        + "/instances/" + consumer_instance
+                        + "/assignments"), requestProperties, data, headers);
+        handleRequest(restClient, request);
+
+        if (state.getState() == ConnectionState.State.UNAUTHORIZED) {
+            throw new AuthenticationException("Request unauthorized");
+        }
+
+        this.topics.addAll(topics);
+    }
+
+
+    // curl -k -X POST -H "Content-Type: application/vnd.kafka.v2+json"
+    // --data '{"partitions":[{"topic":"android_phone_acceleration","partition":0},{"topic":"android_phone_acceleration","partition":1},{"topic":"android_phone_acceleration","partition":2}]}'
+    // "https://nz1200.ukl.uni-freiburg.de/kafka/consumers/test_group/instances/test_instance/positions/end"
+    @Override
+    public void seekEnd(Set<AvroTopic> topics, Set<Integer> partitions) throws IOException {
+        if (!has_consumer) {
+            throw new IOException("Consumer has not been created for this reader!");
+        }
+
+        if (topics.isEmpty()) {
+            logger.warn("No topics given.");
+            return;
+        }
+
+        logger.info("Seeking to the end for topics {}", topics);
+
+        RestClient restClient;
+        RestReader.RequestProperties requestProperties;
+        synchronized (reader) {
+            restClient = reader.getRestClient();
+            requestProperties = reader.getRequestProperties();
+        }
+
+        TopicRequestData data;
+        try {
+            data = getAssignmentsData(topics, partitions);
+        } catch (JSONException ex) {
+            throw new IOException("Error trying to add assignments to JSON data: ", ex);
+        }
+
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", requestProperties.contentType.toString());
+
+        Request request = buildRequest("POST", restClient.getRelativeUrl(
+                "consumers/" + consumer_group
+                        + "/instances/" + consumer_instance
+                        + "/positions/end"), requestProperties, data, headers);
+        handleRequest(restClient, request);
+
+        if (state.getState() == ConnectionState.State.UNAUTHORIZED) {
+            throw new AuthenticationException("Request unauthorized");
+        }
     }
 
 
     @Override
     public JSONArray read() throws IOException, JSONException {
         logger.info("Reading");
+
+        if (this.topics.isEmpty()) {
+            logger.warn("Not subscribed .");
+            return new JSONArray();
+        }
 
         RestClient restClient;
         RestReader.RequestProperties requestProperties;
@@ -321,5 +417,22 @@ class RestTopicReader implements KafkaTopicReader {
     public void setGroupAndInstance(String group, String instance) {
         this.consumer_group = group;
         this.consumer_instance = instance;
+    }
+
+
+    private TopicRequestData getAssignmentsData(Set<AvroTopic> topics, Set<Integer> partitions) throws JSONException {
+        final ArrayList<JSONObject> stringAssignments = new ArrayList<>();
+        for (AvroTopic t : topics) {
+            for (Integer p : partitions) {
+                JSONObject partitioning = new JSONObject();
+                partitioning.put("topic", t.getName());
+                partitioning.put("partition", p);
+                stringAssignments.add(partitioning);
+            }
+        }
+
+        TopicRequestData data = new TopicRequestData();
+        data.addData("partitions", new JSONArray(stringAssignments));
+        return data;
     }
 }

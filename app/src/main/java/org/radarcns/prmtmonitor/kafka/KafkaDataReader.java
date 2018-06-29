@@ -216,8 +216,9 @@ public class KafkaDataReader<V> implements Closeable {
                             logger.info("{} topics available on server", availableTopics.size());
                         }
                         if (checkAvailableTopics(newTopics)) {
-                            topicReader.subscribe(newTopics);
+                            topicReader.assignPartitions(newTopics, new HashSet<>(Arrays.asList(0,1,2)));
                             subscribedTopics.addAll(newTopics);
+                            topicReader.seekEnd(newTopics, new HashSet<>(Arrays.asList(0,1,2)));
                         }
                     } catch (IOException ex) {
                         logger.error("Error trying ot subscribe to topics: ", ex);

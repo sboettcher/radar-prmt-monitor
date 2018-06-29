@@ -45,6 +45,28 @@ public interface KafkaTopicReader extends Closeable {
 
 
     /**
+     * Assign specific partitions to the consumer.
+     *
+     * @param topics set of avro topics to assign partitions from
+     * @param partitions set of partitions to assign
+     * @throws AuthenticationException if the client failed to authenticate itself
+     * @throws IOException if the client could not send a message
+     */
+    void assignPartitions(Set<AvroTopic> topics, Set<Integer> partitions) throws IOException;
+
+
+    /**
+     * Seek to the end of the given topic/partition.
+     *
+     * @param topics set of avro topics
+     * @param partitions set of partitions
+     * @throws AuthenticationException if the client failed to authenticate itself
+     * @throws IOException if the client could not send a message
+     */
+    void seekEnd(Set<AvroTopic> topics, Set<Integer> partitions) throws IOException;
+
+
+    /**
      * Consume messages from the subscribed Kafka topics.
      *
      * @return A JSONArray of the samples consumed
