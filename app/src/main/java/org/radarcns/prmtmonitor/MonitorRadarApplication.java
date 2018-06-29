@@ -68,6 +68,7 @@ public class MonitorRadarApplication extends RadarApplication {
     protected void setupLogging() {
         HandroidLoggerAdapter.APP_NAME = "pRMT";
         HandroidLoggerAdapter.DEBUG = BuildConfig.DEBUG;
+        HandroidLoggerAdapter.LOG_TO_CRASHLYTICS = false;
     }
 
     @Override
@@ -83,8 +84,8 @@ public class MonitorRadarApplication extends RadarApplication {
     @Override
     protected RadarConfiguration createConfiguration() {
         RadarConfiguration config = RadarConfiguration.configure(this, true, R.xml.remote_config_defaults);
-        FirebaseAnalytics firebase = FirebaseAnalytics.getInstance(this);
-        firebase.setUserProperty(TEST_PHASE, BuildConfig.DEBUG ? "dev" : "production");
+        //FirebaseAnalytics firebase = FirebaseAnalytics.getInstance(this);
+        //firebase.setUserProperty(TEST_PHASE, BuildConfig.DEBUG ? "dev" : "production");
         config.fetch();
         return config;
     }

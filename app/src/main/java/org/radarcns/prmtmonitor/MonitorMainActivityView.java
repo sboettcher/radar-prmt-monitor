@@ -20,14 +20,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import org.radarcns.android.RadarConfiguration;
-import org.radarcns.android.device.DeviceServiceProvider;
 import org.radarcns.data.TimedInt;
+import org.radarcns.prmtmonitor.kafka.ServerStatusListener;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -36,10 +36,18 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static org.radarcns.android.RadarConfiguration.CONDENSED_DISPLAY_KEY;
-
 public class MonitorMainActivityView implements Runnable, MainActivityView {
     private static final DateFormat timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.US);
+
+    private final static Map<ServerStatusListener.Status, Integer> serverStatusIconMap;
+    private final static int serverStatusIconDefault = R.drawable.status_searching;
+    static {
+        serverStatusIconMap = new EnumMap<>(ServerStatusListener.Status.class);
+        serverStatusIconMap.put(ServerStatusListener.Status.CONNECTED, R.drawable.status_connected);
+        serverStatusIconMap.put(ServerStatusListener.Status.DISCONNECTED, R.drawable.status_disconnected);
+        serverStatusIconMap.put(ServerStatusListener.Status.READY, R.drawable.status_searching);
+        serverStatusIconMap.put(ServerStatusListener.Status.CONNECTING, R.drawable.status_searching);
+    }
 
     private final MonitorMainActivity mainActivity;
     private final Map<String,DeviceRowView> rows = new HashMap<>();
@@ -47,9 +55,11 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
 
     private long previousTimestamp;
     private volatile String newServerStatus;
+    private volatile ServerStatusListener.Status newConnectionStatus;
 
     // View elements
     private TextView mServerMessage;
+    private View mServerStatus;
     private TextView mUserId;
     private String userId;
     private String previousUserId;
@@ -75,12 +85,17 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
         final HashSet<String> newConnections = new HashSet<String>(tmp);
         //newConnections.add("TEST");
         if (force || (mainActivity.getRadarService() != null && !this.savedConnections.equals(newConnections))) {
+            // clear table
             ViewGroup root = mainActivity.findViewById(R.id.deviceTable);
-            while (root.getChildCount() > 1) {
-                root.removeView(root.getChildAt(1));
-            }
+            root.removeAllViews();
             rows.clear();
-            for (Object connection : newConnections) {
+
+            // sort connections
+            final List sortedConnections = new ArrayList(newConnections);
+            Collections.sort(sortedConnections);
+
+            // add connections
+            for (Object connection : sortedConnections) {
                 rows.put((String) connection, new DeviceRowView(mainActivity, (String) connection, root));
             }
             this.savedConnections = newConnections;
@@ -99,6 +114,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
         }
         if (mainActivity.getRadarService() != null) {
             newServerStatus = getServerStatusMessage();
+            newConnectionStatus = getConnectionStatus();
         }
         mainActivity.runOnUiThread(this);
     }
@@ -121,10 +137,15 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
         return message;
     }
 
+    private ServerStatusListener.Status getConnectionStatus() {
+        return mainActivity.getRadarService().getServerStatus();
+    }
+
     private void initializeViews() {
         mainActivity.setContentView(R.layout.compact_overview);
 
         mServerMessage = mainActivity.findViewById(R.id.statusServerMessage);
+        mServerStatus = mainActivity.findViewById(R.id.conn_status_icon);
 
         mUserId = mainActivity.findViewById(R.id.inputUserId);
         mProjectId = mainActivity.findViewById(R.id.inputProjectId);
@@ -133,7 +154,8 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     @Override
     public void run() {
         createRows();
-        if (rows.size() != savedConnections.size())
+        ViewGroup root = mainActivity.findViewById(R.id.deviceTable);
+        if (rows.size() != savedConnections.size() || root.getChildCount() != savedConnections.size())
             createRows(true);
         for (DeviceRowView row : rows.values()) {
             row.display();
@@ -144,9 +166,15 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
 
     private void updateServerStatus() {
         String message = newServerStatus;
-
         if (message != null) {
             mServerMessage.setText(message);
+        }
+
+        ServerStatusListener.Status status = newConnectionStatus;
+        if (status != null) {
+            Integer statusIcon = serverStatusIconMap.get(status);
+            int resource = statusIcon != null ? statusIcon : serverStatusIconDefault;
+            mServerStatus.setBackgroundResource(resource);
         }
     }
 

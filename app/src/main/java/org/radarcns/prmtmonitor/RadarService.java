@@ -268,6 +268,10 @@ public class RadarService extends Service implements ServerStatusListener {
                 .useCompression(false)
                 .headers(authState.getOkHttpHeaders())
                 .build();
+        if (dataReader != null) {
+            dataReader.close();
+            dataReader = null;
+        }
         dataReader = new KafkaDataReader(this, reader, consumerGroup, consumerInstance, 100, consumerDownloadRate, consumerPersistentData, consumerDecay);
     }
 

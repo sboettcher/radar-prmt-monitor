@@ -40,6 +40,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -151,9 +152,14 @@ public class KafkaDataReader<V> implements Closeable {
         downloadFuture = new Runnable() {
             @Override
             public void run() {
-                if (connection.isConnected() && !subscribedTopics.isEmpty()) {
+                if (!connection.isConnected()){
+                    checkConnection();
+                } else if (!subscribedTopics.isEmpty()) {
                     read();
                 }
+//                if (connection.isConnected() && !subscribedTopics.isEmpty()) {
+//                    read();
+//                }
                 mHandler.postDelayed(this, downloadRate);
             }
         };
@@ -180,16 +186,20 @@ public class KafkaDataReader<V> implements Closeable {
                 mHandler.removeCallbacks(downloadFuture);
                 mHandler.removeCallbacks(subscribeFuture);
 
-                try {
-                    topicReader.close();
-                } catch (IOException e) {
-                    logger.warn("failed to close topicReader", e);
+                if (topicReader != null) {
+                    try {
+                        topicReader.close();
+                    } catch (IOException e) {
+                        logger.warn("failed to close topicReader", e);
+                    }
                 }
 
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    logger.warn("failed to close reader", e);
+                if (reader != null) {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        logger.warn("failed to close reader", e);
+                    }
                 }
 
                 subscribedTopics.clear();
