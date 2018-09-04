@@ -347,4 +347,8 @@ public abstract class MainActivity extends Activity {
     public String getProjectId() {
         return RadarConfiguration.getInstance().getString(RadarConfiguration.PROJECT_ID_KEY, null);
     }
+
+    public String getServerUrl() {
+        return RadarConfiguration.getInstance().getString(RadarConfiguration.KAFKA_REST_PROXY_URL_KEY, null);
+    }
 }

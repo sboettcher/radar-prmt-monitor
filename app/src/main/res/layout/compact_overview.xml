@@ -27,7 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="5dp"
-            android:rowCount="2"
+            android:rowCount="3"
             android:columnCount="2">
 
             <View
@@ -35,7 +35,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="@drawable/ic_person"
-                android:layout_rowSpan="2" />
+                android:layout_rowSpan="3" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -57,6 +57,17 @@
                 android:textSize="16sp"
                 android:textAlignment="textStart"
                 android:text="@string/study_id_message"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="5dp"
+                android:id="@+id/inputServerUrl"
+                android:textSize="16sp"
+                android:textAlignment="textStart"
+                android:text="@string/server_url_message"/>
 
         </GridLayout>
 

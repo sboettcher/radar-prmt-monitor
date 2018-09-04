@@ -60,12 +60,18 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
     // View elements
     private TextView mServerMessage;
     private View mServerStatus;
+
     private TextView mUserId;
     private String userId;
     private String previousUserId;
+
     private TextView mProjectId;
     private String projectId;
     private String previousProjectId;
+
+    private TextView mServerUrl;
+    private String serverUrl;
+    private String previousServerUrl;
 
     MonitorMainActivityView(MonitorMainActivity activity) {
         this.mainActivity = activity;
@@ -107,6 +113,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
 
         userId = mainActivity.getUserId();
         projectId = mainActivity.getProjectId();
+        serverUrl = mainActivity.getServerUrl();
         for (Map.Entry<String,DeviceRowView> row : rows.entrySet()) {
             HashMap topicData = mainActivity.getRadarService().getDataReader().getTopicData(row.getKey());
             if (!topicData.isEmpty())
@@ -149,6 +156,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
 
         mUserId = mainActivity.findViewById(R.id.inputUserId);
         mProjectId = mainActivity.findViewById(R.id.inputProjectId);
+        mServerUrl = mainActivity.findViewById(R.id.inputServerUrl);
     }
 
     @Override
@@ -190,6 +198,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
             }
             previousUserId = userId;
         }
+
         if (!Objects.equals(projectId, previousProjectId)) {
             if (projectId == null) {
                 mProjectId.setVisibility(View.GONE);
@@ -200,6 +209,18 @@ public class MonitorMainActivityView implements Runnable, MainActivityView {
                 mProjectId.setText(mainActivity.getString(R.string.study_id_message, projectId));
             }
             previousProjectId = projectId;
+        }
+
+        if (!Objects.equals(serverUrl, previousServerUrl)) {
+            if (serverUrl == null) {
+                mServerUrl.setVisibility(View.GONE);
+            } else {
+                if (previousServerUrl == null) {
+                    mServerUrl.setVisibility(View.VISIBLE);
+                }
+                mServerUrl.setText(mainActivity.getString(R.string.server_url_message, serverUrl));
+            }
+            previousServerUrl = serverUrl;
         }
     }
 }
