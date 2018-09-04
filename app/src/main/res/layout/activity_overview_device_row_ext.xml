@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TableRow
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="fill_parent"
+    android:layout_height="match_parent"
+    android:layout_marginTop="10dp"
+    android:background="#EEEEEE">
+
+    <TableLayout
+        android:id="@+id/deviceEntryTable"
+        android:layout_width="800dp"
+        android:layout_height="match_parent"
+        android:stretchColumns="*"
+        android:shrinkColumns="*">
+        <!--
+        android:shrinkColumns="*"
+        android:stretchColumns="*"
+        -->
+
+        <TableRow xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:tools="http://schemas.android.com/tools"
+            android:layout_width="fill_parent"
+            android:layout_height="match_parent">
+
+
+            <TextView
+                android:id="@+id/connectionName_label"
+                style="@style/ConnectionNameColumn"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:layout_column="0"
+                android:text="@string/emptyText" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_column="1"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:id="@+id/tab_status_label"
+                    style="@style/Label"
+                    android:text="@string/tabDisplayName" />
+
+                <View
+                    android:id="@+id/tab_status_icon"
+                    style="@style/StatusCircle"
+                    android:background="@drawable/status_disconnected" />
+
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent">
+
+                    <ImageView
+                        android:id="@+id/tab_battery_label"
+                        style="@style/BatteryColumn"
+                        android:contentDescription="@string/battery_status"
+                        android:src="@drawable/ic_battery_unknown" />
+
+                    <TextView
+                        android:id="@+id/tab_battery_value"
+                        style="@style/BatteryValue"
+                        android:text="@string/emptyText" />
+                </FrameLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_column="2"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:id="@+id/e4_status_label"
+                    style="@style/Label"
+                    android:text="@string/e4DisplayName" />
+
+                <View
+                    android:id="@+id/e4_status_icon"
+                    style="@style/StatusCircle"
+                    android:background="@drawable/status_disconnected" />
+
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent">
+
+                    <ImageView
+                        android:id="@+id/e4_battery_label"
+                        style="@style/BatteryColumn"
+                        android:contentDescription="@string/battery_status"
+                        android:src="@drawable/ic_battery_unknown" />
+
+                    <TextView
+                        android:id="@+id/e4_battery_value"
+                        style="@style/BatteryValue"
+                        android:text="@string/emptyText" />
+                </FrameLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_column="3"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:id="@+id/biov_status_label"
+                    style="@style/Label"
+                    android:text="@string/biovDisplayName" />
+
+                <View
+                    android:id="@+id/biov_status_icon"
+                    style="@style/StatusCircle"
+                    android:background="@drawable/status_disconnected" />
+
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent">
+
+                    <ImageView
+                        android:id="@+id/biov_battery_label"
+                        style="@style/BatteryColumn"
+                        android:contentDescription="@string/battery_status"
+                        android:src="@drawable/ic_battery_unknown" />
+
+                    <TextView
+                        android:id="@+id/biov_battery_value"
+                        style="@style/BatteryValue"
+                        android:text="@string/emptyText" />
+                </FrameLayout>
+            </LinearLayout>
+
+        </TableRow>
+
+
+        <TableRow xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:tools="http://schemas.android.com/tools"
+            android:layout_width="fill_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:id="@+id/label_secondary"
+                style="@style/SecondaryCell"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_column="0"
+                android:text="" />
+
+            <TextView
+                android:id="@+id/tab_secondary"
+                style="@style/SecondaryCell"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_column="1"
+                android:text="00:00:00" />
+
+            <TextView
+                android:id="@+id/e4_secondary"
+                style="@style/SecondaryCell"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_column="2"
+                android:text="@string/emptyText" />
+
+            <TextView
+                android:id="@+id/biov_secondary"
+                style="@style/SecondaryCell"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_column="3"
+                android:text="@string/emptyText" />
+
+
+        </TableRow>
+    </TableLayout>
+
+
+
+    <!--
+    <Button
+        android:id="@+id/inputDeviceButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:text="E4"
+        android:textSize="10sp"
+        android:minHeight="0dp"
+        android:minWidth="0dp"
+        android:visibility="visible"
+        android:clickable="false"/>
+    -->
+
+
+    <!--<TextView-->
+    <!--android:id="@+id/temperature_label"-->
+    <!--style="@style/NumberColumn"-->
+    <!--android:text="@string/disabledText" />-->
+
+    <!--<TextView-->
+    <!--android:id="@+id/heartRate_label"-->
+    <!--style="@style/NumberColumn"-->
+    <!--android:text="@string/disabledText" />-->
+
+    <!--<TextView-->
+    <!--android:id="@+id/acceleration_label"-->
+    <!--style="@style/NumberColumn"-->
+    <!--android:text="@string/disabledText" />-->
+
+    <!--<ImageButton
+        android:id="@+id/refreshButton"
+        android:src="@drawable/ic_cancel"
+        />-->
+
+
+</TableRow>

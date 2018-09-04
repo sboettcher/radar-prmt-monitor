@@ -24,19 +24,23 @@ import android.widget.ImageView;
 import android.widget.TableRow;
 import android.widget.TextView;
 
+import org.apache.avro.JsonProperties;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.radarcns.android.device.DeviceStatusListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Array;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+
+import static org.radarcns.prmtmonitor.RadarService.deviceLabels;
 
 /**
  * Displays a single device row.
@@ -72,12 +76,17 @@ public class DeviceRowView {
     private final View mTabStatusIcon;
     private final ImageView mTabBatteryLabel;
     private final TextView mTabBatteryValue;
+    private final TextView mTabLastStatus;
+
     private final View mE4StatusIcon;
     private final ImageView mE4BatteryLabel;
     private final TextView mE4BatteryValue;
+    private final TextView mE4LastStatus;
+
     private final View mBiovStatusIcon;
     private final ImageView mBiovBatteryLabel;
     private final TextView mBiovBatteryValue;
+    private final TextView mBiovLastStatus;
 
     private DeviceStatusListener.Status prevTabStatus = null;
     private float prevTabBatteryLevel = Float.NaN;
@@ -87,11 +96,10 @@ public class DeviceRowView {
     private float prevBiovBatteryLevel = Float.NaN;
 
     private double lastTabStatus = 0;
-    private double lastTabBattery = 0;
     private double lastE4Status = 0;
-    private double lastE4Battery = 0;
     private double lastBiovStatus = 0;
-    private double lastBiovBattery = 0;
+    private String lastE4Label = "";
+    private String lastBiovLabel = "";
 
     DeviceRowView(MainActivity mainActivity, String connection, ViewGroup root) {
         this.mainActivity = mainActivity;
@@ -99,7 +107,7 @@ public class DeviceRowView {
         logger.info("Creating row for connection {}", connection);
         LayoutInflater inflater = (LayoutInflater) this.mainActivity.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
-        inflater.inflate(R.layout.activity_overview_device_row, root);
+        inflater.inflate(R.layout.activity_overview_device_row_ext, root);
         TableRow row = (TableRow) root.getChildAt(root.getChildCount() - 1);
         mConnectionNameLabel = row.findViewById(R.id.connectionName_label);
 
@@ -113,12 +121,17 @@ public class DeviceRowView {
         mTabStatusIcon = row.findViewById(R.id.tab_status_icon);
         mTabBatteryLabel = row.findViewById(R.id.tab_battery_label);
         mTabBatteryValue = row.findViewById(R.id.tab_battery_value);
+        mTabLastStatus = row.findViewById(R.id.tab_secondary);
+
         mE4StatusIcon = row.findViewById(R.id.e4_status_icon);
         mE4BatteryLabel = row.findViewById(R.id.e4_battery_label);
         mE4BatteryValue = row.findViewById(R.id.e4_battery_value);
+        mE4LastStatus = row.findViewById(R.id.e4_secondary);
+
         mBiovStatusIcon = row.findViewById(R.id.biov_status_icon);
         mBiovBatteryLabel = row.findViewById(R.id.biov_battery_label);
         mBiovBatteryValue = row.findViewById(R.id.biov_battery_value);
+        mBiovLastStatus = row.findViewById(R.id.biov_secondary);
 
         mConnectionNameLabel.setText(connection);
     }
@@ -135,45 +148,51 @@ public class DeviceRowView {
     void display() {
         updateConnectionName();
 
-        updateTab();
-        updateE4();
-        updateBiov();
+        try {
+            updateTab();
+            updateE4();
+            updateBiov();
+        } catch (JSONException ex) {
+            logger.warn("JSON error trying to update device status:", ex);
+        } catch (NullPointerException ex) {
+            logger.warn("NullPointer error trying to update device status:", ex);
+        }
 
         updateLast();
     }
 
-    private void updateTab(){
+    private void updateTab() throws JSONException, NullPointerException {
         // update status
         prevTabStatus = updateStatus(mTabData, prevTabStatus, mTabStatusIcon);
         if (mTabData != null && !mTabData.isEmpty())
-            lastTabStatus = System.currentTimeMillis();
+            lastTabStatus = getLastTimeReceived(mTabData);
 
         // update battery
         prevTabBatteryLevel = updateBattery(mTabBat, prevTabBatteryLevel, mTabBatteryValue, mTabBatteryLabel);
-        if (mTabBat != null && !mTabBat.isEmpty())
-            lastTabStatus = System.currentTimeMillis();
     }
 
-    private void updateE4() {
+    private void updateE4() throws JSONException, NullPointerException {
+        // update status
         prevE4Status = updateStatus(mE4Data, prevE4Status, mE4StatusIcon);
-        if (mE4Data != null && !mE4Data.isEmpty())
-            lastE4Status = System.currentTimeMillis();
+        if (mE4Data != null && !mE4Data.isEmpty()) {
+            lastE4Status = getLastTimeReceived(mE4Data);
+            lastE4Label = getLastSourceId(mE4Data);
+        }
 
         // update battery
         prevE4BatteryLevel = updateBattery(mE4Bat, prevE4BatteryLevel, mE4BatteryValue, mE4BatteryLabel);
-        if (mE4Bat != null && !mE4Bat.isEmpty())
-            lastE4Status = System.currentTimeMillis();
     }
 
-    private void updateBiov() {
+    private void updateBiov() throws JSONException, NullPointerException {
+        // update status
         prevBiovStatus = updateStatus(mBiovData, prevBiovStatus, mBiovStatusIcon);
-        if (mBiovData != null && !mBiovData.isEmpty())
-            lastBiovStatus = System.currentTimeMillis();
+        if (mBiovData != null && !mBiovData.isEmpty()) {
+            lastBiovStatus = getLastTimeReceived(mBiovData);
+            lastBiovLabel = getLastSourceId(mBiovData);
+        }
 
         // update battery
         prevBiovBatteryLevel = updateBattery(mBiovBat, prevBiovBatteryLevel, mBiovBatteryValue, mBiovBatteryLabel);
-        if (mBiovBat != null && !mBiovBat.isEmpty())
-            lastBiovStatus = System.currentTimeMillis();
     }
 
     private DeviceStatusListener.Status updateStatus(ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> statusData, DeviceStatusListener.Status prevStatus, View statusIconView) {
@@ -243,7 +262,36 @@ public class DeviceRowView {
         mConnectionNameLabel.setText(newName == null ? "\u2014" : newName);
     }
 
-    private void updateLast() {
+    private double getLastTimeReceived(ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> data) throws JSONException, NullPointerException {
+        return data.get(data.size() - 1).getValue().getDouble("timeReceived");
+    }
+    private String getLastSourceId(ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> data) throws JSONException, NullPointerException {
+        return data.get(data.size() - 1).getKey().getString("sourceId");
+    }
 
+
+
+    private String getLastText(double stamp, String label) {
+        long millis = System.currentTimeMillis() - (long) (stamp*1000);
+        String sinceLast = String.format(Locale.UK,"%02d:%02d:%02d", TimeUnit.MILLISECONDS.toHours(millis),
+                TimeUnit.MILLISECONDS.toMinutes(millis) % TimeUnit.HOURS.toMinutes(1),
+                TimeUnit.MILLISECONDS.toSeconds(millis) % TimeUnit.MINUTES.toSeconds(1));
+
+        if (label != null && !label.isEmpty()) {
+            String lastLabel = deviceLabels.containsKey(label) ? deviceLabels.get(label) : "N/A";
+            return lastLabel + " | " + sinceLast;
+        } else {
+            return "N/A | " + sinceLast;
+        }
+    }
+    private void updateLast() {
+        if (lastTabStatus != 0)
+            mTabLastStatus.setText(getLastText(lastTabStatus, null));
+
+        if (lastE4Status != 0)
+            mE4LastStatus.setText(getLastText(lastE4Status, lastE4Label));
+
+        if (lastBiovStatus != 0)
+            mBiovLastStatus.setText(getLastText(lastBiovStatus, lastBiovLabel));
     }
 }

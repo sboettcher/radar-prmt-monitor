@@ -54,9 +54,12 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -94,6 +97,19 @@ public class RadarService extends Service implements ServerStatusListener {
 
     public static String ACTION_PERMISSIONS_GRANTED = RADAR_PACKAGE + ".ACTION_PERMISSIONS_GRANTED";
     public static String EXTRA_GRANT_RESULTS = RADAR_PACKAGE + ".EXTRA_GRANT_RESULTS";
+
+    public static final Map<String, String> deviceLabels;
+    static {
+        Map<String, String> deviceLabelMap = new HashMap<>();
+
+        // Empatica E4
+        // deviceLabelMap.put("00:07:80:XX:XX:XX",  "label");
+
+        // Biovotion VSM1
+        // deviceLabelMap.put("XX:XX:XX:XX:XX:XX", "label");
+
+        deviceLabels = Collections.unmodifiableMap(deviceLabelMap);
+    }
 
     private final BroadcastReceiver permissionsBroadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -268,11 +284,12 @@ public class RadarService extends Service implements ServerStatusListener {
                 .useCompression(false)
                 .headers(authState.getOkHttpHeaders())
                 .build();
-        if (dataReader != null) {
-            dataReader.close();
-            dataReader = null;
-        }
-        dataReader = new KafkaDataReader(this, reader, consumerGroup, consumerInstance, 100, consumerDownloadRate, consumerPersistentData, consumerDecay);
+        //if (dataReader != null) {
+        //    dataReader.close();
+        //    dataReader = null;
+        //}
+        if (dataReader == null)
+            dataReader = new KafkaDataReader(this, reader, consumerGroup, consumerInstance, 100, consumerDownloadRate, consumerPersistentData, consumerDecay);
     }
 
 
