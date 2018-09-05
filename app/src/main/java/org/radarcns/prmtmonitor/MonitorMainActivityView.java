@@ -134,6 +134,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
             Collections.sort(sortedConnections);
 
             mGraphSourceAdapter.clear();
+            mGraphSourceAdapter.add("[NONE]");
             mGraphSourceAdapter.addAll(sortedConnections);
 
             // add connections
@@ -304,7 +305,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
                     if (data.get(i) != null)
                         lineData[i] = new DataPoint(i, data.get(i).getValue().getDouble(line));
                     else
-                        break;
+                        lineData[i] = new DataPoint(i, 0);
                 }
             } catch (JSONException ex) {
                 continue;
@@ -317,6 +318,10 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
     }
 
     private void resetSeries() {
+        if (mGraphSourceSelection == null || mGraphTopicSelection == null) {
+            return;
+        }
+
         mDataGraph.removeAllSeries();
 
         mDataGraph.getViewport().setScrollable(true);
@@ -355,9 +360,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
             mGraphTopicSelection = (String) parent.getItemAtPosition(pos);
         }
 
-        if (mGraphSourceSelection == null || mGraphTopicSelection == null) {
-            return;
-        }
+        if (mGraphSourceSelection != null && mGraphSourceSelection.equals("[NONE]")) mGraphSourceSelection = null;
 
         resetSeries();
     }
