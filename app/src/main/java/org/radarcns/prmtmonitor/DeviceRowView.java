@@ -294,4 +294,36 @@ public class DeviceRowView {
         if (lastBiovStatus != 0)
             mBiovLastStatus.setText(getLastText(lastBiovStatus, lastBiovLabel));
     }
+
+
+    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getTabData() {
+        return mTabData;
+    }
+    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getTabBat() {
+        return mTabBat;
+    }
+    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getE4Data() {
+        return mE4Data;
+    }
+    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getE4Bat() {
+        return mE4Bat;
+    }
+    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getBiovData() {
+        return mBiovData;
+    }
+    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getBiovBat() {
+        return mBiovBat;
+    }
+
+    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getDataForTopic(String topic) {
+        switch (topic) {
+            case "android_phone_acceleration": return getTabData();
+            case "android_phone_battery_level": return getTabBat();
+            case "android_empatica_e4_acceleration": return getE4Data();
+            case "android_empatica_e4_battery_level": return getE4Bat();
+            case "android_biovotion_vsm1_acceleration": return getBiovData();
+            case "android_biovotion_vsm1_battery_level": return getBiovBat();
+            default: return null;
+        }
+    }
 }

@@ -175,4 +175,72 @@
 
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" >
+
+        <TextView
+            android:id="@+id/graph_separator"
+            style="@style/MyListSeparator"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/graph_separator"/>
+        <View
+            style="@style/DividerLine" />
+
+        <GridLayout
+            android:id="@+id/graph_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:columnCount="2"
+            android:rowCount="1">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_row="0"
+            android:layout_column="0"
+            android:layout_columnWeight="1"
+            android:layout_gravity="left">
+            <TextView
+                android:id="@+id/graph_conn_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/graph_conn_label"/>
+            <Spinner
+                android:id="@+id/graph_conn_spinner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_row="0"
+            android:layout_column="1"
+            android:layout_columnWeight="1"
+            android:layout_gravity="right">
+            <TextView
+                android:id="@+id/graph_topic_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/graph_topic_label"/>
+            <Spinner
+                android:id="@+id/graph_topic_spinner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+        </GridLayout>
+
+        <com.jjoe64.graphview.GraphView
+            android:layout_width="match_parent"
+            android:layout_height="fill_parent"
+            android:minHeight="300dip"
+            android:id="@+id/graph_view" />
+
+    </LinearLayout>
+
 </LinearLayout>

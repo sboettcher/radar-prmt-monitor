@@ -55,6 +55,8 @@ dependencies {
     testApi 'junit:junit:4.12'
     testRuntimeOnly 'org.slf4j:slf4j-simple:1.7.25'
     implementation 'com.android.support.constraint:constraint-layout:1.1.2'
+
+    implementation 'com.jjoe64:graphview:4.2.2'
 }
 
 // Needed for Firebase. Put at the bottom so it can detect the Firebase version.

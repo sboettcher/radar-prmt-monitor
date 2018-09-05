@@ -75,4 +75,16 @@
     <string name="server_url_message">Server: %1$s</string>
     <string name="login_failed_qr">QR code scanning failed. Please try again.</string>
     <string name="login_failed_mp">Server did not respond. Please try again later with internet connection turned on.</string>
+    <string name="graph_separator">Graph</string>
+    <string name="graph_conn_label">Connection:</string>
+    <string name="graph_topic_label">Topic:</string>
+
+    <string-array name="graph_topic_array">
+        <item>android_phone_acceleration</item>
+        <item>android_phone_battery_level</item>
+        <item>android_empatica_e4_acceleration</item>
+        <item>android_empatica_e4_battery_level</item>
+        <item>android_biovotion_vsm1_acceleration</item>
+        <item>android_biovotion_vsm1_battery_level</item>
+    </string-array>
 </resources>
