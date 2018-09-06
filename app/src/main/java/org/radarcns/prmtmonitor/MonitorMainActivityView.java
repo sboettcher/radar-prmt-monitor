@@ -342,6 +342,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
 
         Iterator<String> iter = data.get(0).getValue().keys();
         int colorInd = 0;
+        int maxWidth = 0;
         while (iter.hasNext()) {
             String key = iter.next();
             if (key.equals("time") || key.equals("timeReceived"))
@@ -351,11 +352,13 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
             mDataSeries.get(key).setTitle(key);
             mDataGraph.addSeries(mDataSeries.get(key));
             colorInd++;
+            if (key.length() > maxWidth) maxWidth = key.length();
         }
 
         mDataGraph.getLegendRenderer().setVisible(true);
         mDataGraph.getLegendRenderer().setAlign(LegendRenderer.LegendAlign.TOP);
         mDataGraph.getLegendRenderer().setBackgroundColor(Color.argb(100,100,100,100));
+        mDataGraph.getLegendRenderer().setWidth(50+maxWidth*12);
     }
 
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
