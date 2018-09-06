@@ -124,8 +124,9 @@ public abstract class MainActivity extends Activity {
         registerReceiver(configurationBroadcastReceiver,
                 new IntentFilter(RadarConfiguration.RADAR_CONFIGURATION_CHANGED));
 
-        AppAuthState authState = new AppAuthState.Builder().projectId("0").userId("TABDEV").expiration(Long.MAX_VALUE).build();
+        AppAuthState authState = new AppAuthState.Builder().projectId("0").userId("prmt_monitor").expiration(Long.MAX_VALUE).build();
         authState.addToPreferences(this);
+
 
         Bundle extras = new Bundle();
         extras.putString(RadarService.EXTRA_MAIN_ACTIVITY, getClass().getName());
