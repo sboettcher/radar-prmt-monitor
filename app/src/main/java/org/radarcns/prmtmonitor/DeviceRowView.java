@@ -66,6 +66,8 @@ public class DeviceRowView {
     private String previousName;
     private final TextView mConnectionNameLabel;
 
+    HashMap<String, ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>>> mTopicData;
+
     private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mTabData;
     private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mTabBat;
     private ArrayList<AbstractMap.SimpleEntry<JSONObject,JSONObject>> mE4Data;
@@ -111,6 +113,7 @@ public class DeviceRowView {
         TableRow row = (TableRow) root.getChildAt(root.getChildCount() - 1);
         mConnectionNameLabel = row.findViewById(R.id.connectionName_label);
 
+        mTopicData = new HashMap<>();
         mTabData = new ArrayList<>();
         mTabBat = new ArrayList<>();
         mE4Data = new ArrayList<>();
@@ -143,6 +146,8 @@ public class DeviceRowView {
         mE4Bat = topicData.get("android_empatica_e4_battery_level") == null ? null : new ArrayList<>(topicData.get("android_empatica_e4_battery_level"));
         mBiovData = topicData.get("android_biovotion_vsm1_acceleration") == null ? null : new ArrayList<>(topicData.get("android_biovotion_vsm1_acceleration"));
         mBiovBat = topicData.get("android_biovotion_vsm1_battery_level") == null ? null : new ArrayList<>(topicData.get("android_biovotion_vsm1_battery_level"));
+
+        mTopicData = topicData;
     }
 
     void display() {
@@ -296,34 +301,7 @@ public class DeviceRowView {
     }
 
 
-    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getTabData() {
-        return mTabData;
-    }
-    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getTabBat() {
-        return mTabBat;
-    }
-    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getE4Data() {
-        return mE4Data;
-    }
-    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getE4Bat() {
-        return mE4Bat;
-    }
-    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getBiovData() {
-        return mBiovData;
-    }
-    public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getBiovBat() {
-        return mBiovBat;
-    }
-
     public ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> getDataForTopic(String topic) {
-        switch (topic) {
-            case "android_phone_acceleration": return getTabData();
-            case "android_phone_battery_level": return getTabBat();
-            case "android_empatica_e4_acceleration": return getE4Data();
-            case "android_empatica_e4_battery_level": return getE4Bat();
-            case "android_biovotion_vsm1_acceleration": return getBiovData();
-            case "android_biovotion_vsm1_battery_level": return getBiovBat();
-            default: return null;
-        }
+        return (!mTopicData.containsKey(topic) || mTopicData.get(topic) == null) ? null : new ArrayList<>(mTopicData.get(topic));
     }
 }

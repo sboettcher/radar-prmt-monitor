@@ -312,6 +312,11 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
             }
 
             mDataSeries.get(line).resetData(lineData);
+            mDataGraph.getViewport().setMinX(0);
+            if (lineData.length < 1000)
+                mDataGraph.getViewport().setMaxX(lineData.length);
+            else
+                mDataGraph.getViewport().setMaxX(1000);
             mDataGraph.getViewport().scrollToEnd();
         }
 
@@ -329,7 +334,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
 
         mDataGraph.getViewport().setXAxisBoundsManual(true);
         mDataGraph.getViewport().setMinX(0);
-        mDataGraph.getViewport().setMaxX(2000);
+        mDataGraph.getViewport().setMaxX(10);
 
         mDataSeries.clear();
         ArrayList<AbstractMap.SimpleEntry<JSONObject, JSONObject>> data = rows.get(mGraphSourceSelection).getDataForTopic(mGraphTopicSelection);

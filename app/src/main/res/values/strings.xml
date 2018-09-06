@@ -84,7 +84,10 @@
         <item>android_phone_battery_level</item>
         <item>android_empatica_e4_acceleration</item>
         <item>android_empatica_e4_battery_level</item>
+        <item>android_empatica_e4_blood_volume_pulse</item>
+        <item>android_empatica_e4_electrodermal_activity</item>
         <item>android_biovotion_vsm1_acceleration</item>
         <item>android_biovotion_vsm1_battery_level</item>
+        <item>android_biovotion_vsm1_ppg_raw</item>
     </string-array>
 </resources>

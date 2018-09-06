@@ -40,8 +40,14 @@ import org.radarcns.android.auth.AppAuthState;
 import org.radarcns.android.util.BundleSerialization;
 import org.radarcns.config.ServerConfig;
 import org.radarcns.data.TimedInt;
+import org.radarcns.passive.biovotion.BiovotionVsm1BatteryLevel;
+import org.radarcns.passive.biovotion.BiovotionVsm1PpgRaw;
 import org.radarcns.passive.empatica.EmpaticaE4Acceleration;
+import org.radarcns.passive.empatica.EmpaticaE4BatteryLevel;
+import org.radarcns.passive.empatica.EmpaticaE4BloodVolumePulse;
+import org.radarcns.passive.empatica.EmpaticaE4ElectroDermalActivity;
 import org.radarcns.passive.phone.PhoneAcceleration;
+import org.radarcns.passive.phone.PhoneBatteryLevel;
 import org.radarcns.prmtmonitor.consumer.KafkaReader;
 import org.radarcns.prmtmonitor.consumer.RestReader;
 import org.radarcns.prmtmonitor.kafka.KafkaDataReader;
@@ -221,11 +227,14 @@ public class RadarService extends Service implements ServerStatusListener {
                 try {
                     Set<AvroTopic> topics = new HashSet<>();
                     topics.add(dataReader.createTopic("android_phone_acceleration", PhoneAcceleration.class));
-                    topics.add(dataReader.createTopic("android_phone_battery_level", PhoneAcceleration.class));
+                    topics.add(dataReader.createTopic("android_phone_battery_level", PhoneBatteryLevel.class));
                     topics.add(dataReader.createTopic("android_empatica_e4_acceleration", EmpaticaE4Acceleration.class));
-                    topics.add(dataReader.createTopic("android_empatica_e4_battery_level", EmpaticaE4Acceleration.class));
+                    topics.add(dataReader.createTopic("android_empatica_e4_battery_level", EmpaticaE4BatteryLevel.class));
+                    topics.add(dataReader.createTopic("android_empatica_e4_blood_volume_pulse", EmpaticaE4BloodVolumePulse.class));
+                    topics.add(dataReader.createTopic("android_empatica_e4_electrodermal_activity", EmpaticaE4ElectroDermalActivity.class));
                     topics.add(dataReader.createTopic("android_biovotion_vsm1_acceleration", PhoneAcceleration.class));
-                    topics.add(dataReader.createTopic("android_biovotion_vsm1_battery_level", PhoneAcceleration.class));
+                    topics.add(dataReader.createTopic("android_biovotion_vsm1_battery_level", BiovotionVsm1BatteryLevel.class));
+                    topics.add(dataReader.createTopic("android_biovotion_vsm1_ppg_raw", BiovotionVsm1PpgRaw.class));
                     dataReader.addTopics(topics);
                 } catch (IOException ex) {
                     logger.error("KafkaDataReader failed!", ex);
