@@ -20,7 +20,6 @@ import android.os.Handler;
 
 import org.radarcns.prmtmonitor.consumer.KafkaReader;
 import org.radarcns.producer.AuthenticationException;
-import org.radarcns.producer.KafkaSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

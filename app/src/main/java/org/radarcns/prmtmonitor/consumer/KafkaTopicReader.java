@@ -2,13 +2,11 @@ package org.radarcns.prmtmonitor.consumer;
 
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 import org.radarcns.producer.AuthenticationException;
 import org.radarcns.topic.AvroTopic;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Set;
 
 public interface KafkaTopicReader extends Closeable {

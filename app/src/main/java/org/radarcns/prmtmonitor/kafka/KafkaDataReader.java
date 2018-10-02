@@ -21,7 +21,6 @@ import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 
 import org.apache.avro.Schema;
-import org.apache.avro.reflect.MapEntry;
 import org.apache.avro.specific.SpecificRecord;
 import org.json.JSONArray;
 import org.json.JSONException;

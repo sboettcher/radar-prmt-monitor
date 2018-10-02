@@ -24,7 +24,6 @@ import android.widget.ImageView;
 import android.widget.TableRow;
 import android.widget.TextView;
 
-import org.apache.avro.JsonProperties;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.radarcns.android.device.DeviceStatusListener;

@@ -24,8 +24,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.SystemClock;
 
-import com.google.firebase.analytics.FirebaseAnalytics;
-
 import org.radarcns.android.RadarApplication;
 import org.radarcns.android.RadarConfiguration;
 import org.slf4j.LoggerFactory;

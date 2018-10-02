@@ -39,7 +39,6 @@ import android.support.v4.content.LocalBroadcastManager;
 
 import org.radarcns.android.RadarConfiguration;
 import org.radarcns.android.auth.AppAuthState;
-import org.radarcns.android.auth.LoginActivity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,10 +48,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static android.Manifest.permission.PACKAGE_USAGE_STATS;
-import static org.radarcns.android.RadarConfiguration.MANAGEMENT_PORTAL_URL_KEY;
-import static org.radarcns.android.RadarConfiguration.UNSAFE_KAFKA_CONNECTION;
-import static org.radarcns.android.auth.LoginActivity.ACTION_LOGIN;
-import static org.radarcns.android.auth.portal.GetSubjectParser.getHumanReadableUserId;
 
 /** Base MainActivity class. It manages the services to collect the data and starts up a view. To
  * create an application, extend this class and override the abstract methods. */
