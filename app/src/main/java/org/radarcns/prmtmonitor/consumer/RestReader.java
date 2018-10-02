@@ -20,23 +20,24 @@ import org.radarcns.config.ServerConfig;
 import org.radarcns.producer.AuthenticationException;
 import org.radarcns.producer.rest.ConnectionState;
 import org.radarcns.producer.rest.ConnectionState.State;
-import org.radarcns.producer.rest.ManagedConnectionPool;
 import org.radarcns.producer.rest.RestClient;
 import org.radarcns.producer.rest.SchemaRetriever;
-import org.radarcns.topic.AvroTopic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Headers;
 import okhttp3.MediaType;
+import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import static org.radarcns.producer.rest.RestClient.DEFAULT_TIMEOUT;
 import static org.radarcns.producer.rest.RestClient.responseBody;
 
 /**
@@ -51,6 +52,8 @@ public class RestReader implements KafkaReader {
             "application/vnd.kafka.v2+json, application/vnd.kafka+json, application/json";
     public static final String KAFKA_REST_ACCEPT_LEGACY_ENCODING =
             "application/vnd.kafka.v1+json, application/vnd.kafka+json, application/json";
+    public static final MediaType KAFKA_REST_BINARY_ENCODING =
+            MediaType.parse("application/vnd.radarbase.avro.v1+binary");
     public static final MediaType KAFKA_REST_AVRO_ENCODING =
             MediaType.parse("application/vnd.kafka.avro.v2+json; charset=utf-8");
     public static final MediaType KAFKA_REST_AVRO_LEGACY_ENCODING =
@@ -64,42 +67,51 @@ public class RestReader implements KafkaReader {
 
     /**
      * Construct a RestReader.
-     * @param httpClient client to send requests with
-     * @param schemaRetriever non-null Retriever of avro schemas
-     * @param useCompression use compression to send data
-     * @param sharedState shared connection state
-     * @param additionalHeaders headers to add to requests
      */
-    private RestReader(RestClient httpClient, SchemaRetriever schemaRetriever,
-                       boolean useCompression, ConnectionState sharedState, Headers additionalHeaders) {
-        this.schemaRetriever = schemaRetriever;
-        this.requestProperties = new RequestProperties(KAFKA_REST_ACCEPT_ENCODING,
-                KAFKA_REST_AVRO_ENCODING, useCompression, additionalHeaders);
-        this.state = sharedState;
-        setRestClient(httpClient);
+    private RestReader(Builder builder) {
+        this.schemaRetriever = Objects.requireNonNull(builder.retriever);
+        this.requestProperties = new RequestProperties(
+                KAFKA_REST_ACCEPT_ENCODING,
+                builder.binary ? KAFKA_REST_BINARY_ENCODING : KAFKA_REST_AVRO_ENCODING,
+                builder.additionalHeaders.build(),
+                builder.binary);
+        this.state = builder.state;
+        setRestClient(Objects.requireNonNull(builder.client).newBuilder()
+                .protocols(Collections.singletonList(Protocol.HTTP_1_1))
+                .build());
     }
 
-    public synchronized void setConnectionTimeout(long connectionTimeout) {
+
+    /**
+     * Set the connection timeout. This affects both the connection state as the HTTP client
+     * setting.
+     * @param connectionTimeout timeout
+     * @param unit time unit
+     */
+    public synchronized void setConnectionTimeout(long connectionTimeout, TimeUnit unit) {
         if (connectionTimeout != httpClient.getTimeout()) {
-            RestClient newRestClient = new RestClient(httpClient.getConfig(),
-                    connectionTimeout, httpClient.getConnectionPool());
-            httpClient.close();
-            httpClient = newRestClient;
-            state.setTimeout(connectionTimeout, TimeUnit.SECONDS);
+            httpClient = httpClient.newBuilder().timeout(connectionTimeout, unit).build();
+            state.setTimeout(connectionTimeout, unit);
         }
     }
 
+
+    /**
+     * Set the Kafka REST Proxy settings. This affects the REST client.
+     * @param kafkaConfig server configuration of the Kafka REST proxy.
+     */
     public synchronized void setKafkaConfig(ServerConfig kafkaConfig) {
         Objects.requireNonNull(kafkaConfig);
-        if (kafkaConfig.equals(httpClient.getConfig())) {
+        if (kafkaConfig.equals(httpClient.getServer())) {
             return;
         }
-        RestClient newRestClient = new RestClient(kafkaConfig, httpClient.getTimeout(),
-                httpClient.getConnectionPool());
-        httpClient.close();
-        setRestClient(newRestClient);
+        setRestClient(httpClient.newBuilder().server(kafkaConfig).build());
     }
 
+
+    /**
+     * Set the REST client. This will reset the connection state.
+     */
     private void setRestClient(RestClient newClient) {
         try {
             isConnectedRequest = newClient.requestBuilder("").head();
@@ -110,34 +122,41 @@ public class RestReader implements KafkaReader {
         state.reset();
     }
 
+    /** Set the schema retriever. */
     public final synchronized void setSchemaRetriever(SchemaRetriever retriever) {
         this.schemaRetriever = retriever;
     }
 
+    /** Get the current REST client. */
     public synchronized RestClient getRestClient() {
         return httpClient;
     }
 
+    /** Get the schema retriever. */
     public synchronized SchemaRetriever getSchemaRetriever() {
         return this.schemaRetriever;
     }
 
+    /** Get a request to check the connection status. */
     private synchronized Request getIsConnectedRequest() {
         return isConnectedRequest.headers(requestProperties.headers).build();
     }
 
+    /** Set the compression of the REST client. */
     public synchronized void setCompression(boolean useCompression) {
-        this.requestProperties = new RequestProperties(requestProperties.acceptType,
-                requestProperties.contentType, useCompression, requestProperties.headers);
+        httpClient = httpClient.newBuilder().gzipCompression(useCompression).build();
     }
 
+    /** Get the headers used in requests. */
     public synchronized Headers getHeaders() {
         return requestProperties.headers;
     }
 
+    /** Set the headers used in requests. */
     public synchronized void setHeaders(Headers additionalHeaders) {
         this.requestProperties = new RequestProperties(requestProperties.acceptType,
-                requestProperties.contentType, requestProperties.useCompression, additionalHeaders);
+                requestProperties.contentType, additionalHeaders,
+                requestProperties.binary);
         this.state.reset();
     }
 
@@ -146,8 +165,18 @@ public class RestReader implements KafkaReader {
         return new RestTopicReader(this, state);
     }
 
+    /**
+     * Get the current request properties.
+     */
     public synchronized RequestProperties getRequestProperties() {
         return requestProperties;
+    }
+
+    /**
+     * Get the current request context.
+     */
+    public synchronized RequestContext getRequestContext() {
+        return new RequestContext(httpClient, requestProperties);
     }
 
     @Override
@@ -196,36 +225,37 @@ public class RestReader implements KafkaReader {
 
     @Override
     public void close() {
-        httpClient.close();
+        // noop
     }
 
-    public synchronized void useLegacyEncoding() {
-        this.requestProperties = new RequestProperties(KAFKA_REST_ACCEPT_LEGACY_ENCODING,
-                KAFKA_REST_AVRO_LEGACY_ENCODING, requestProperties.useCompression,
-                requestProperties.headers);
+
+    /**
+     * Revert to a legacy connection if the server does not support the latest protocols.
+     * @param acceptEncoding accept encoding to use in the legacy connection.
+     * @param contentEncoding content encoding to use in the legacy connection.
+     * @param binary whether to send the data as binary.
+     */
+    public synchronized void useLegacyEncoding(String acceptEncoding,
+                                               MediaType contentEncoding, boolean binary) {
+        this.requestProperties = new RequestProperties(acceptEncoding,
+                contentEncoding,
+                requestProperties.headers, binary);
     }
 
     public static class Builder {
-        private ServerConfig kafkaConfig;
         private SchemaRetriever retriever;
-        private boolean compression = false;
-        private long timeout = 10;
         private ConnectionState state;
-        private ManagedConnectionPool pool;
+        private RestClient client;
         private Headers.Builder additionalHeaders = new Headers.Builder();
-
-        public Builder server(ServerConfig kafkaConfig) {
-            this.kafkaConfig = kafkaConfig;
-            return this;
-        }
+        private boolean binary = false;
 
         public Builder schemaRetriever(SchemaRetriever schemaRetriever) {
             this.retriever = schemaRetriever;
             return this;
         }
 
-        public Builder useCompression(boolean compression) {
-            this.compression = compression;
+        public Builder hasBinaryContent(boolean binary) {
+            this.binary = binary;
             return this;
         }
 
@@ -234,13 +264,8 @@ public class RestReader implements KafkaReader {
             return this;
         }
 
-        public Builder connectionTimeout(long timeout, TimeUnit unit) {
-            this.timeout = TimeUnit.SECONDS.convert(timeout, unit);
-            return this;
-        }
-
-        public Builder connectionPool(ManagedConnectionPool pool) {
-            this.pool = pool;
+        public Builder httpClient(RestClient client) {
+            this.client = client;
             return this;
         }
 
@@ -254,43 +279,39 @@ public class RestReader implements KafkaReader {
             return this;
         }
 
+        /** Build a new RestReader. */
         public RestReader build() {
-            Objects.requireNonNull(kafkaConfig);
-            Objects.requireNonNull(retriever);
-            if (timeout <= 0) {
-                throw new IllegalStateException("Connection timeout must be strictly positive");
-            }
-            ConnectionState useState;
-            ManagedConnectionPool usePool;
-
-            if (state != null) {
-                useState = state;
-            } else {
-                useState = new ConnectionState(timeout, TimeUnit.SECONDS);
-            }
-            if (pool != null) {
-                usePool = pool;
-            } else {
-                usePool = ManagedConnectionPool.GLOBAL_POOL;
+            if (state == null) {
+                state = new ConnectionState(DEFAULT_TIMEOUT, TimeUnit.SECONDS);
             }
 
-            return new RestReader(new RestClient(kafkaConfig, timeout, usePool),
-                    retriever, compression, useState, additionalHeaders.build());
+            return new RestReader(this);
         }
     }
 
-    public static final class RequestProperties {
-        public final String acceptType;
-        public final MediaType contentType;
-        public final boolean useCompression;
-        public final Headers headers;
 
-        RequestProperties(String acceptType, MediaType contentType, boolean useCompression,
-                Headers headers) {
+    static final class RequestContext {
+        final RequestProperties properties;
+        final RestClient client;
+
+        RequestContext(RestClient client, RequestProperties properties) {
+            this.properties = properties;
+            this.client = client;
+        }
+    }
+
+    static final class RequestProperties {
+        final String acceptType;
+        final MediaType contentType;
+        final Headers headers;
+        final boolean binary;
+
+        RequestProperties(String acceptType, MediaType contentType, Headers headers,
+                          boolean binary) {
             this.acceptType = acceptType;
             this.contentType = contentType;
-            this.useCompression = useCompression;
             this.headers = headers;
+            this.binary = binary;
         }
     }
 }

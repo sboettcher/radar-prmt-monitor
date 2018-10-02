@@ -29,7 +29,6 @@ import com.jjoe64.graphview.LegendRenderer;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 
-import org.apache.avro.JsonProperties;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.radarcns.data.TimedInt;
@@ -101,7 +100,7 @@ public class MonitorMainActivityView implements Runnable, MainActivityView, Adap
 
     private int mLastDataSize;
 
-    private int[] primaryColors = {0xFFD50000, 0xFF00C853, 0xFF2962FF};
+    private int[] primaryColors = {0xFFD50000, 0xFF00C853, 0xFF2962FF}; // {R, G, B}
 
 
     MonitorMainActivityView(MonitorMainActivity activity) {

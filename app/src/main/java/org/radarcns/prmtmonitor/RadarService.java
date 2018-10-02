@@ -48,10 +48,10 @@ import org.radarcns.passive.empatica.EmpaticaE4BloodVolumePulse;
 import org.radarcns.passive.empatica.EmpaticaE4ElectroDermalActivity;
 import org.radarcns.passive.phone.PhoneAcceleration;
 import org.radarcns.passive.phone.PhoneBatteryLevel;
-import org.radarcns.prmtmonitor.consumer.KafkaReader;
 import org.radarcns.prmtmonitor.consumer.RestReader;
 import org.radarcns.prmtmonitor.kafka.KafkaDataReader;
 import org.radarcns.prmtmonitor.kafka.ServerStatusListener;
+import org.radarcns.producer.rest.RestClient;
 import org.radarcns.producer.rest.SchemaRetriever;
 import org.radarcns.topic.AvroTopic;
 import org.slf4j.Logger;
@@ -221,24 +221,21 @@ public class RadarService extends Service implements ServerStatusListener {
                         .setContentIntent(PendingIntent.getActivity(this, 0, new Intent().setComponent(new ComponentName(this, mainActivityClass)), 0))
                         .build());
 
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Set<AvroTopic> topics = new HashSet<>();
-                    topics.add(dataReader.createTopic("android_phone_acceleration", PhoneAcceleration.class));
-                    topics.add(dataReader.createTopic("android_phone_battery_level", PhoneBatteryLevel.class));
-                    topics.add(dataReader.createTopic("android_empatica_e4_acceleration", EmpaticaE4Acceleration.class));
-                    topics.add(dataReader.createTopic("android_empatica_e4_battery_level", EmpaticaE4BatteryLevel.class));
-                    topics.add(dataReader.createTopic("android_empatica_e4_blood_volume_pulse", EmpaticaE4BloodVolumePulse.class));
-                    topics.add(dataReader.createTopic("android_empatica_e4_electrodermal_activity", EmpaticaE4ElectroDermalActivity.class));
-                    topics.add(dataReader.createTopic("android_biovotion_vsm1_acceleration", PhoneAcceleration.class));
-                    topics.add(dataReader.createTopic("android_biovotion_vsm1_battery_level", BiovotionVsm1BatteryLevel.class));
-                    topics.add(dataReader.createTopic("android_biovotion_vsm1_ppg_raw", BiovotionVsm1PpgRaw.class));
-                    dataReader.addTopics(topics);
-                } catch (IOException ex) {
-                    logger.error("KafkaDataReader failed!", ex);
-                }
+        mHandler.post(() -> {
+            try {
+                Set<AvroTopic> topics = new HashSet<>();
+                topics.add(dataReader.createTopic("android_phone_acceleration", PhoneAcceleration.class));
+                topics.add(dataReader.createTopic("android_phone_battery_level", PhoneBatteryLevel.class));
+                topics.add(dataReader.createTopic("android_empatica_e4_acceleration", EmpaticaE4Acceleration.class));
+                topics.add(dataReader.createTopic("android_empatica_e4_battery_level", EmpaticaE4BatteryLevel.class));
+                topics.add(dataReader.createTopic("android_empatica_e4_blood_volume_pulse", EmpaticaE4BloodVolumePulse.class));
+                topics.add(dataReader.createTopic("android_empatica_e4_electrodermal_activity", EmpaticaE4ElectroDermalActivity.class));
+                topics.add(dataReader.createTopic("android_biovotion_vsm1_acceleration", PhoneAcceleration.class));
+                topics.add(dataReader.createTopic("android_biovotion_vsm1_battery_level", BiovotionVsm1BatteryLevel.class));
+                topics.add(dataReader.createTopic("android_biovotion_vsm1_ppg_raw", BiovotionVsm1PpgRaw.class));
+                dataReader.addTopics(topics);
+            } catch (IOException ex) {
+                logger.error("KafkaDataReader failed!", ex);
             }
         });
 
@@ -286,19 +283,23 @@ public class RadarService extends Service implements ServerStatusListener {
         boolean consumerPersistentData = configuration.getBoolean(CONFIG_CONSUMER_PERSISTENT, false);
         int consumerDecay = configuration.getInt(CONFIG_CONSUMER_DECAY, 300000);
 
-        KafkaReader reader = new RestReader.Builder()
-                .server(kafkaConfig)
-                .schemaRetriever(remoteSchemaRetriever)
-                .connectionTimeout(10, TimeUnit.SECONDS)
-                .useCompression(false)
-                .headers(authState.getOkHttpHeaders())
-                .build();
-        //if (dataReader != null) {
-        //    dataReader.close();
-        //    dataReader = null;
-        //}
-        if (dataReader == null)
-            dataReader = new KafkaDataReader(this, reader, consumerGroup, consumerInstance, 100, consumerDownloadRate, consumerPersistentData, consumerDecay);
+        if (kafkaConfig != null) {
+            RestClient httpClient = RestClient.global()
+                    .server(kafkaConfig)
+                    .gzipCompression(false)
+                    .timeout(30, TimeUnit.SECONDS)
+                    .build();
+
+            RestReader restReader = new RestReader.Builder()
+                    .httpClient(httpClient)
+                    .schemaRetriever(remoteSchemaRetriever)
+                    .headers(authState.getOkHttpHeaders())
+                    .hasBinaryContent(false)
+                    .build();
+
+            if (dataReader == null)
+                dataReader = new KafkaDataReader(this, restReader, consumerGroup, consumerInstance, 100, consumerDownloadRate, consumerPersistentData, consumerDecay);
+        }
     }
 
 
@@ -394,7 +395,7 @@ public class RadarService extends Service implements ServerStatusListener {
         }
 
         if (!needsPermissions.isEmpty()) {
-            requestPermissions(needsPermissions.toArray(new String[needsPermissions.size()]));
+            requestPermissions(needsPermissions.toArray(new String[0]));
         }
     }
 
@@ -445,36 +446,4 @@ public class RadarService extends Service implements ServerStatusListener {
             return dataReader;
         }
     }
-
-    /*
-    private static class AsyncBindServices extends AsyncTask<DeviceServiceProvider, Void, Void> {
-        private final boolean unbindFirst;
-
-        AsyncBindServices(boolean unbindFirst) {
-            this.unbindFirst = unbindFirst;
-        }
-
-        @Override
-        protected Void doInBackground(DeviceServiceProvider... params) {
-            for (DeviceServiceProvider provider : params) {
-                if (provider == null) {
-                    continue;
-                }
-                if (unbindFirst) {
-                    logger.info("Rebinding {} after disconnect", provider);
-                    if (provider.isBound()) {
-                        provider.unbind();
-                    }
-                }
-                if (!provider.isBound()) {
-                    logger.info("Binding to service: {}", provider);
-                    provider.bind();
-                } else {
-                    logger.info("Already bound: {}", provider);
-                }
-            }
-            return null;
-        }
-    }
-    */
 }
